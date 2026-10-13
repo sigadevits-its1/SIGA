@@ -7,10 +7,8 @@
 {% block cuerpo %}
 <div class="app">
   <aside class="sidebar" aria-label="Navegación principal">
-    <a class="brand" href="{% url 'administracion:bandeja' %}">
-      <span class="brand-mark"><i data-lucide="landmark"></i></span>
-      <span><strong>SIGA</strong><small>ITS N.º 1{% if periodo %} · {{ periodo.nombre }}{% endif %}</small></span>
-    </a>
+    {% url 'administracion:bandeja' as inicio %}
+    <div class="sidebar-marca">{% include "includes/marca.html" with href=inicio %}</div>
 
     <div class="nav-label">Admisiones</div>
     <nav class="nav">

@@ -8,11 +8,6 @@
   padding: 20px 16px; background: var(--surface); border-right: 1px solid var(--border);
   overflow-y: auto;
 }
-.brand { display: flex; align-items: center; gap: 12px; padding: 4px 6px 16px; text-decoration: none; color: var(--text); }
-.brand-mark { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 10px; background: var(--navy); color: #fff; flex: none; }
-.brand-mark svg.lucide { width: 21px; height: 21px; }
-.brand strong { display: block; font-size: 15px; line-height: 1.2; letter-spacing: -.01em; }
-.brand small { display: block; font-size: 11px; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; margin-top: 2px; }
 .nav-label { padding: 14px 8px 4px; font-size: 11px; font-weight: 700; color: var(--subtle); letter-spacing: .08em; text-transform: uppercase; }
 .nav { display: grid; gap: 2px; }
 .nav a {

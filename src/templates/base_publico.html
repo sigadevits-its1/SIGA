@@ -7,10 +7,7 @@
 {% block cuerpo %}
 <header class="site-head">
   <div class="wrap">
-    <a class="brand" href="/">
-      <span class="brand-mark"><i data-lucide="landmark"></i></span>
-      <span><strong>Instituto Técnico Superior N.º 1</strong><small>SIGA{% if periodo %} · {{ periodo.nombre }}{% endif %}</small></span>
-    </a>
+    {% include "includes/marca.html" with instituto="Instituto Técnico Superior N.º 1" %}
     <div class="site-help"><i data-lucide="life-buoy"></i><span>¿Dudas? Secretaría atiende de <strong>lunes a viernes, 8 a 13 h</strong></span></div>
   </div>
 </header>

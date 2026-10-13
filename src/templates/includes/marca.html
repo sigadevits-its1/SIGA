@@ -1,0 +1,11 @@
+{# Logo de SIGA: palabra "SIGA." con línea de acento, y a la derecha el instituto y el período. #}
+<a class="marca" href="{{ href|default:'/' }}" aria-label="SIGA, inicio">
+  <span class="marca-logo">
+    <span class="marca-texto">SIGA<span class="marca-punto">.</span></span>
+    <span class="marca-linea" aria-hidden="true"></span>
+  </span>
+  <span class="marca-detalle">
+    <small>{{ instituto|default:"ITS N.º 1" }}</small>
+    <small>{% if periodo %}{{ periodo.nombre }}{% else %}Gestión académica{% endif %}</small>
+  </span>
+</a>

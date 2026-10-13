@@ -182,6 +182,16 @@ select.control {
 .dl dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
 .dl .wide { grid-column: 1 / -1; }
 
+/* ---------- Logo: "SIGA." con línea de acento ---------- */
+.marca { display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: var(--navy); }
+.marca-logo { display: flex; flex-direction: column; gap: 4px; }
+.marca-texto { font-size: 26px; font-weight: 800; letter-spacing: -.04em; line-height: 1; }
+.marca-punto { color: #46d38a; }
+.marca-linea { width: 28px; height: 3px; border-radius: 2px; background: #2e5fc7; }
+.marca-detalle { display: flex; flex-direction: column; padding-left: 12px; border-left: 1px solid var(--border); }
+.marca-detalle small { font-size: 11px; line-height: 1.45; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; }
+.sidebar-marca { padding: 4px 6px 16px; }
+
 /* ---------- Diálogos (<dialog> nativo) y avisos ---------- */
 dialog.modal {
   width: min(520px, calc(100% - 32px)); padding: 0; border: 0;
