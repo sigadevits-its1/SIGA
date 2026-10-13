@@ -23,7 +23,7 @@
   background: rgba(255, 255, 255, .95); backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--border);
 }
-.steps { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 0; padding: 12px 0; flex-wrap: wrap; list-style: none; }
+.steps { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 0 auto; padding-block: 12px; flex-wrap: wrap; list-style: none; }
 .steps li { display: flex; align-items: center; gap: 8px; }
 .steps a { display: flex; align-items: center; gap: 8px; color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; }
 .steps .dot { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border-strong); font-size: 12px; font-weight: 700; color: var(--muted); background: var(--surface); }
