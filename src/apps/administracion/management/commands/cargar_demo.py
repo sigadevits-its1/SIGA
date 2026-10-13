@@ -26,7 +26,7 @@ CARRERAS = [
     ("TSAP", "Tecnicatura Superior en Administración Pública", "Administración Pública", "Res. 845/21", 25),
     ("TSHST", "Tecnicatura Superior en Higiene y Seguridad en el Trabajo", "Higiene y Seguridad", "Res. 2210/18", 20),
     ("TSER", "Tecnicatura Superior en Energías Renovables", "Energías Renovables", "Res. 1187/22", 20),
-    ("TSGT", "Tecnicatura Superior en Guía de Turismo", "Guía de Turismo", "Res. 517/20", 3),  # se llena con la demo
+    ("TSGT", "Tecnicatura Superior en Guía de Turismo", "Guía de Turismo", "Res. 517/20", 3),  # cupo chico: se llena con los aspirantes de ejemplo
 ]
 
 ASPIRANTES = [
@@ -106,15 +106,15 @@ class Command(BaseCommand):
         if Preinscripcion.objects.filter(periodo_plan__periodo=periodo).exists():
             self.stdout.write("Ya había aspirantes de ejemplo; no se agregan más.")
         else:
-            for i, (nombre, apellido, codigo) in enumerate(ASPIRANTES):
-                self.crear_aspirante(rnd, i, nombre, apellido, ofertas[codigo], usuario)
+            for nombre, apellido, codigo in ASPIRANTES:
+                self.crear_aspirante(rnd, nombre, apellido, ofertas[codigo])
             self.stdout.write(f"Se crearon {len(ASPIRANTES)} aspirantes de ejemplo.")
 
         self.stdout.write(self.style.SUCCESS(
             f"Listo. Período '{periodo.nombre}' abierto. Usuario: secretaria (ver README para la contraseña)."
         ))
 
-    def crear_aspirante(self, rnd, i, nombre, apellido, oferta, revisor):
+    def crear_aspirante(self, rnd, nombre, apellido, oferta):
         sin_tildes = nombre.translate(str.maketrans("áéíóúñ", "aeioun")).lower()
         persona = Persona.objects.create(
             nombre=nombre,
@@ -134,9 +134,4 @@ class Command(BaseCommand):
             nombre_archivo = f"{tipo}_{apellido}{nombre}.pdf"
             doc = DocumentoPreinscripcion(preinscripcion=p, tipo=tipo, nombre_original=nombre_archivo)
             doc.archivo.save(nombre_archivo, ContentFile(pdf_de_ejemplo(f"{etiqueta} - {nombre} {apellido}")), save=True)
-
-        # Las primeras quedan pendientes; algunas ya resueltas para ver los tres estados.
-        if i % 5 == 3:
-            p.aceptar(revisor, "Documentación completa.")
-        elif i % 7 == 5:
-            p.rechazar(revisor, "El documento de identidad no se lee. Volvé a enviarlo escaneado.")
+        # Todas quedan pendientes: secretaría las acepta o rechaza desde el panel.
