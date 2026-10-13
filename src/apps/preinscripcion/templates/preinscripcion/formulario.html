@@ -1,6 +1,9 @@
 {% extends "base_publico.html" %}
-{% load static %}
+{% load siga %}
 {% block titulo %}Preinscripción{% endblock %}
+
+{# El CSS del calendario va antes que el de SIGA, así nuestros colores tienen prioridad #}
+{% block estilos %}<link rel="stylesheet" href="{% estatico 'vendor/flatpickr/flatpickr.min.css' %}">{{ block.super }}{% endblock %}
 
 {% block contenido %}
 <section class="hero">
@@ -51,7 +54,7 @@
         </div>
         <div class="grid cols-2">
           {% include "includes/campo.html" with campo=form.dni etiqueta="Número de DNI" ayuda="Sin puntos ni espacios." %}
-          {% include "includes/campo.html" with campo=form.fecha_nacimiento etiqueta="Fecha de nacimiento" %}
+          {% include "includes/campo.html" with campo=form.fecha_nacimiento etiqueta="Fecha de nacimiento" icono="calendar" %}
         </div>
       </div>
     </section>
@@ -163,4 +166,8 @@
 </main>
 {% endblock %}
 
-{% block scripts %}<script src="{% static 'js/formulario.js' %}"></script>{% endblock %}
+{% block scripts %}
+<script src="{% estatico 'vendor/flatpickr/flatpickr.min.js' %}"></script>
+<script src="{% estatico 'vendor/flatpickr/es.js' %}"></script>
+<script src="{% estatico 'js/formulario.js' %}"></script>
+{% endblock %}

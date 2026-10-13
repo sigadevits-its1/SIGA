@@ -7,6 +7,27 @@ document.addEventListener('DOMContentLoaded', function () {
   var form = document.querySelector('form.preinscripcion');
   if (!form) return;
 
+  // ---- Calendario de fecha de nacimiento (flatpickr, en español) ----
+  var fecha = form.querySelector('[data-calendario]');
+  if (fecha && window.flatpickr) {
+    var hoy = new Date();
+    flatpickr(fecha, {
+      locale: 'es',
+      dateFormat: 'Y-m-d',        // lo que se envía al servidor
+      altInput: true,             // lo que ve la persona
+      altFormat: 'd/m/Y',
+      altInputClass: 'control',
+      allowInput: true,           // también se puede escribir a mano
+      maxDate: hoy,
+      monthSelectorType: 'dropdown',
+      // Abre en un año típico de ingresante para no navegar mes por mes
+      onOpen: function (sel, valor, fp) {
+        if (!valor) fp.jumpToDate(new Date(hoy.getFullYear() - 18, 0, 1));
+      },
+      onChange: function () { actualizarPasos(); }
+    });
+  }
+
   var MAX_BYTES = 10 * 1024 * 1024;
   var FORMATOS = /\.(pdf|jpe?g|png)$/i;
 

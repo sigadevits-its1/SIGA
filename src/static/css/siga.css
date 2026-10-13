@@ -3,6 +3,22 @@
  * Tomados de los mockups de ingreso: azul marino institucional,
  * tarjetas blancas sobre gris frío, tipografía Inter.
  */
+/* Fuentes locales (static/fonts), sin depender de Google Fonts. Licencia SIL OFL. */
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900; /* fuente variable: todos los pesos en un archivo */
+  font-display: swap;
+  src: url("../fonts/inter-latin-variable.woff2") format("woff2");
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/jetbrains-mono-latin-500.woff2") format("woff2");
+}
+
 :root {
   /* Color */
   --navy: #13294b;

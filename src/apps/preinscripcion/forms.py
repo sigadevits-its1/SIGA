@@ -21,7 +21,12 @@ class PreinscripcionForm(forms.Form):
     nombre = forms.CharField(max_length=100, widget=caja(autocomplete="given-name"))
     apellido = forms.CharField(max_length=100, widget=caja(autocomplete="family-name"))
     dni = forms.CharField(label="DNI", max_length=8, validators=[validar_dni], widget=caja(inputmode="numeric"))
-    fecha_nacimiento = forms.DateField(widget=caja(forms.DateInput, type="date"))
+    # Calendario flatpickr (formulario.js). Se envía como AAAA-MM-DD; se muestra como DD/MM/AAAA.
+    fecha_nacimiento = forms.DateField(
+        widget=forms.DateInput(
+            format="%Y-%m-%d", attrs={"class": "control", "placeholder": "dd/mm/aaaa", "data-calendario": ""}
+        )
+    )
     email = forms.EmailField(max_length=150, widget=caja(forms.EmailInput, autocomplete="email"))
     email_confirmacion = forms.EmailField(widget=caja(forms.EmailInput, autocomplete="off"))
     telefono = forms.CharField(max_length=40, widget=caja(forms.TextInput, type="tel", autocomplete="tel"))

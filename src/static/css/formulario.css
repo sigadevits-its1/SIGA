@@ -108,3 +108,22 @@
 /* Login y páginas simples */
 .centrado { min-height: calc(100vh - 64px - 56px); display: grid; place-items: center; padding: 32px 16px; }
 .centrado > .card { width: min(420px, 100%); }
+
+/* Calendario de fecha de nacimiento (flatpickr) con los colores de SIGA */
+.flatpickr-calendar { font-family: var(--font); border-radius: 12px; border: 1px solid var(--border); box-shadow: var(--shadow-lg); padding: 6px; width: 320px; }
+.flatpickr-calendar.arrowTop::before, .flatpickr-calendar.arrowTop::after { display: none; }
+.flatpickr-months { padding: 4px 0 8px; }
+.flatpickr-months .flatpickr-month { color: var(--text); height: 40px; }
+.flatpickr-current-month { font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 6px; padding-top: 6px; }
+.flatpickr-current-month .flatpickr-monthDropdown-months { font-weight: 700; border-radius: 6px; padding: 2px 4px; }
+.flatpickr-current-month .flatpickr-monthDropdown-months:hover, .flatpickr-current-month .numInputWrapper:hover { background: var(--navy-050); }
+.flatpickr-current-month input.cur-year { font-weight: 700; }
+.flatpickr-months .flatpickr-prev-month, .flatpickr-months .flatpickr-next-month { top: 8px; padding: 8px; border-radius: 8px; color: var(--muted); fill: var(--muted); }
+.flatpickr-months .flatpickr-prev-month:hover svg, .flatpickr-months .flatpickr-next-month:hover svg { fill: var(--navy); }
+span.flatpickr-weekday { color: var(--subtle); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+.flatpickr-day { border-radius: 8px; color: var(--text); font-weight: 500; max-width: 40px; height: 38px; line-height: 38px; }
+.flatpickr-day:hover, .flatpickr-day:focus { background: var(--navy-050); border-color: var(--navy-050); }
+.flatpickr-day.today { border-color: var(--border-strong); }
+.flatpickr-day.selected, .flatpickr-day.selected:hover, .flatpickr-day.selected:focus { background: var(--navy); border-color: var(--navy); color: #fff; }
+.flatpickr-day.prevMonthDay, .flatpickr-day.nextMonthDay { color: var(--subtle); }
+.flatpickr-day.flatpickr-disabled, .flatpickr-day.flatpickr-disabled:hover { color: var(--border-strong); }
