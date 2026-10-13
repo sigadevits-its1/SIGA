@@ -83,10 +83,14 @@
 .kpi strong { font-size: 28px; font-weight: 750; letter-spacing: -.02em; line-height: 1.1; }
 
 /* Cupos por carrera */
-.quota-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px 24px; }
-.quota { display: grid; gap: 6px; min-width: 0; }
-.quota .name { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
-.quota .name strong { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Grilla fija de 3 columnas (2 en tablet, 1 en celular) para que las filas queden parejas */
+.quota-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 32px; }
+@media (max-width: 1100px) { .quota-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .quota-list { grid-template-columns: minmax(0, 1fr); } }
+.quota { display: grid; gap: 6px; min-width: 0; align-content: start; }
+.quota .name { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; font-size: 13px; }
+.quota .name strong { min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quota .name .num { flex: none; white-space: nowrap; }
 .bar { position: relative; height: 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); overflow: hidden; }
 .bar span { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--navy); }
 .bar.full span { background: var(--amber); }
