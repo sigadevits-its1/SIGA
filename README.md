@@ -22,13 +22,24 @@ docker compose exec web python manage.py cargar_demo
 - Panel de secretaría: http://localhost:8000/administracion/ — usuario `secretaria`, contraseña `siga1234` (sólo datos de demo; se cambia con `cargar_demo --password ...`)
 - Admin de Django (carreras, planes, períodos y cupos): http://localhost:8000/admin/ — crear un superusuario con `docker compose exec web python manage.py createsuperuser`
 
-Los correos no se envían: se imprimen en la consola.
+### Correo
+
+SIGA envía tres correos al aspirante: al recibir la solicitud, al aceptarla y al rechazarla (con el motivo).
+
+Mientras `EMAIL_HOST_PASSWORD` esté vacío en `.env`, **no se envían**: se imprimen en la consola.
 
 ```bash
 docker compose logs -f web
 ```
 
-Para enviarlos de verdad, configurar SMTP en `.env`.
+Para enviarlos por la cuenta de Gmail del proyecto (`siga_dev.its@gmail.com`):
+
+1. En la cuenta de Google, activar la verificación en dos pasos y crear una **contraseña de aplicación** (Cuenta de Google → Seguridad → Contraseñas de aplicaciones). Es un código de 16 letras; no es la contraseña normal de la cuenta.
+2. Pegarla en `.env` en `EMAIL_HOST_PASSWORD=`, sin espacios.
+3. Reiniciar el contenedor para que tome el cambio: `docker compose up -d`
+4. Probar: `docker compose exec web python manage.py probar_correo tu@correo.com`
+
+El `.env` no se sube al repositorio, así que la contraseña queda sólo en cada máquina.
 
 ### Comandos útiles
 
