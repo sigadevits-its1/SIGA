@@ -1,0 +1,11 @@
+{# Un campo de formulario con etiqueta, ícono opcional, ayuda y errores. #}
+<div class="field{% if campo.errors %} invalid{% endif %}">
+  <label for="{{ campo.id_for_label }}">{{ etiqueta }} <span class="req">*</span></label>
+  {% if icono %}
+    <div class="input-icon"><i data-lucide="{{ icono }}"></i>{{ campo }}</div>
+  {% else %}
+    {{ campo }}
+  {% endif %}
+  {% if ayuda %}<span class="help">{{ ayuda }}</span>{% endif %}
+  {{ campo.errors }}
+</div>

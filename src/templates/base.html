@@ -1,0 +1,27 @@
+{% load static %}<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block titulo %}SIGA{% endblock %} · ITS N.º 1</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+  <link rel="stylesheet" href="{% static 'css/siga.css' %}">
+  {% block estilos %}{% endblock %}
+</head>
+<body>
+  {% block cuerpo %}{% endblock %}
+
+  {% for mensaje in messages %}
+    <div class="toast {% if mensaje.level_tag == 'error' %}error{% endif %}" role="status">
+      <i data-lucide="{% if mensaje.level_tag == 'error' %}circle-alert{% else %}circle-check{% endif %}"></i>
+      <span>{{ mensaje }}</span>
+    </div>
+  {% endfor %}
+
+  <script src="{% static 'vendor/lucide.min.js' %}"></script>
+  <script src="{% static 'js/siga.js' %}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

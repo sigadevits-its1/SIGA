@@ -1,0 +1,18 @@
+{% extends "base_publico.html" %}
+{% block titulo %}Inscripción cerrada{% endblock %}
+
+{% block contenido %}
+<main class="centrado">
+  <section class="card done-card">
+    <div class="done-icon" style="background:var(--slate-bg);color:var(--slate)"><i data-lucide="calendar-x"></i></div>
+    <h2>La inscripción no está abierta</h2>
+    <p class="muted" style="margin-top:8px">
+      {% if proximo %}
+        El período {{ proximo.nombre }} abre el {{ proximo.fecha_desde|date:"j \d\e F" }}.
+      {% else %}
+        Por ahora no hay un período de preinscripción vigente. Consultá en secretaría.
+      {% endif %}
+    </p>
+  </section>
+</main>
+{% endblock %}

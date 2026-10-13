@@ -1,0 +1,115 @@
+{% extends "base_panel.html" %}
+{% block titulo %}Aspirantes{% endblock %}
+
+{% block migas %}<span>Admisiones</span><i data-lucide="chevron-right"></i><strong>Aspirantes</strong>{% endblock %}
+
+{% block contenido %}
+<div class="page-head">
+  <div>
+    <h1>Aspirantes</h1>
+    <p>{% if periodo %}Preinscripciones del período {{ periodo.nombre }}. Revisá cada solicitud y aceptala o rechazala.{% else %}Todavía no hay períodos de inscripción cargados.{% endif %}</p>
+  </div>
+</div>
+
+{# Resumen por estado: cada tarjeta filtra la tabla #}
+<section class="kpis" aria-label="Resumen por estado">
+  {% for t in tarjetas %}
+    <a class="card kpi{% if f.estado == t.estado %} activo{% endif %}" href="?{% if t.estado %}estado={{ t.estado }}{% endif %}">
+      <span class="top"><span>{{ t.titulo }}</span><span class="ico tone-{{ t.tono }}"><i data-lucide="{{ t.icono }}"></i></span></span>
+      <strong class="num">{{ t.n }}</strong>
+    </a>
+  {% endfor %}
+</section>
+
+{% if ofertas %}
+<section class="card">
+  <div class="card-head"><div><h2>Cupos por carrera</h2><p>Lugares ocupados por solicitudes pendientes y aceptadas. Las rechazadas liberan el lugar.</p></div></div>
+  <div class="card-body">
+    <div class="quota-list">
+      {% for o in ofertas %}
+        <div class="quota">
+          <div class="name">
+            <strong title="{{ o.plan.carrera.nombre }}">{{ o.plan.carrera.nombre_corto }}</strong>
+            <span class="num{% if o.libres == 0 %} text-amber{% endif %}">{{ o.ocupados }}{% if o.cupo_ingresantes %} / {{ o.cupo_ingresantes }}{% endif %}</span>
+          </div>
+          {% if o.cupo_ingresantes %}
+            <div class="bar{% if o.libres == 0 %} full{% endif %}" role="img" aria-label="{{ o.ocupados }} de {{ o.cupo_ingresantes }} lugares">
+              <span style="width: {% widthratio o.ocupados o.cupo_ingresantes 100 %}%"></span>
+            </div>
+            <small>{% if o.libres == 0 %}Cupo cubierto{% else %}{{ o.libres }} lugar{{ o.libres|pluralize:"es" }} libre{{ o.libres|pluralize }}{% endif %}</small>
+          {% else %}
+            <small>Sin límite de cupo</small>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<section class="card" style="overflow:hidden">
+  {# Filtros: un formulario GET, la URL guarda la búsqueda #}
+  <form class="toolbar" method="get">
+    <div class="input-icon search">
+      <i data-lucide="search"></i>
+      <input class="control" type="search" name="q" value="{{ f.q }}" placeholder="Buscar por nombre, DNI, correo o número de solicitud">
+    </div>
+    <select class="control" name="estado" aria-label="Filtrar por estado" onchange="this.form.submit()">
+      <option value="">Estado: todos</option>
+      {% for valor, nombre in estados %}
+        <option value="{{ valor }}" {% if f.estado == valor %}selected{% endif %}>{{ nombre }}</option>
+      {% endfor %}
+    </select>
+    <select class="control" name="carrera" aria-label="Filtrar por carrera" onchange="this.form.submit()">
+      <option value="">Carrera: todas</option>
+      {% for c in carreras %}
+        <option value="{{ c.pk }}" {% if f.carrera == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.nombre_corto }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" type="submit"><i data-lucide="filter"></i> Filtrar</button>
+    {% if f.q or f.estado or f.carrera %}<a class="btn btn-ghost" href="?">Limpiar</a>{% endif %}
+  </form>
+
+  <div class="meta">{{ pagina.paginator.count }} resultado{{ pagina.paginator.count|pluralize }}</div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Aspirante</th><th>Carrera</th><th>Fecha</th><th>Documentación</th><th>Estado</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for p in pagina %}
+          <tr>
+            <td>
+              <div class="who">
+                <span class="avatar">{{ p.persona.iniciales }}</span>
+                <div style="min-width:0">
+                  <strong>{{ p.persona.nombre_completo }}</strong>
+                  <small><span class="num">DNI {{ p.persona.dni_con_puntos }}</span> · {{ p.persona.email }}</small>
+                </div>
+              </div>
+            </td>
+            <td>{{ p.periodo_plan.plan.carrera.nombre_corto }}<div class="id">{{ p.numero }}</div></td>
+            <td class="num" style="white-space:nowrap">{{ p.fecha_preinscripcion|date:"j M Y" }}<div class="subtle" style="font-size:12px">{{ p.fecha_preinscripcion|date:"H:i" }} h</div></td>
+            <td><span class="docs"><i data-lucide="paperclip"></i>{{ p.cantidad_documentos }} archivo{{ p.cantidad_documentos|pluralize }}</span></td>
+            <td>{% include "administracion/estado.html" with estado=p.estado etiqueta=p.get_estado_display %}</td>
+            <td style="text-align:right"><a class="btn btn-sm" href="{% url 'administracion:ficha' p.pk %}">Ficha <i data-lucide="chevron-right" class="i-sm"></i></a></td>
+          </tr>
+        {% empty %}
+          <tr><td colspan="6"><div class="empty"><strong>No hay aspirantes con esos filtros</strong>Probá con otra búsqueda o quitá algún filtro.</div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if pagina.paginator.num_pages > 1 %}
+    <div class="pager">
+      <span>Página {{ pagina.number }} de {{ pagina.paginator.num_pages }}</span>
+      <div class="pages">
+        {% if pagina.has_previous %}<a class="btn btn-sm" href="?{{ filtros_url }}&pagina={{ pagina.previous_page_number }}"><i data-lucide="chevron-left" class="i-sm"></i> Anterior</a>{% endif %}
+        {% if pagina.has_next %}<a class="btn btn-sm" href="?{{ filtros_url }}&pagina={{ pagina.next_page_number }}">Siguiente <i data-lucide="chevron-right" class="i-sm"></i></a>{% endif %}
+      </div>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

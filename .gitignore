@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Configuración local (contiene claves)
+.env
+
+# Archivos subidos y estáticos generados
+media/
+staticfiles/
+
+# Editores y sistema
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

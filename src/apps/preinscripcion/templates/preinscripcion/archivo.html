@@ -1,0 +1,12 @@
+{# Una fila de carga de archivo. El input real está oculto y se activa con el botón (label). #}
+<div class="file{% if campo.errors %} invalid{% endif %}">
+  <span class="ico"><i data-lucide="{{ icono }}"></i></span>
+  <div style="min-width:0">
+    <strong><span{% if nombre_id %} id="{{ nombre_id }}"{% endif %}>{{ nombre }}</span>
+      {% if opcional %}<span class="opcional">(opcional)</span>{% else %}<span class="req" style="color:var(--red)">*</span>{% endif %}
+    </strong>
+    <small>{% if campo.errors %}{{ campo.errors.0 }}{% else %}{{ detalle }} · PDF, JPG o PNG{% endif %}</small>
+  </div>
+  <label class="btn btn-sm" for="{{ campo.id_for_label }}"><i data-lucide="upload"></i> Seleccionar archivo</label>
+  {{ campo }}
+</div>

@@ -1,0 +1,26 @@
+{% extends "base_publico.html" %}
+{% block titulo %}Ingresar{% endblock %}
+
+{% block contenido %}
+<main class="centrado">
+  <section class="card">
+    <div class="card-head"><div><h2>Ingresar a SIGA</h2><p>Acceso para el personal del instituto.</p></div></div>
+    <form class="card-body grid" method="post">
+      {% csrf_token %}
+      {% if form.errors %}
+        <div class="notice warn"><i data-lucide="triangle-alert"></i><span>Usuario o contraseña incorrectos.</span></div>
+      {% endif %}
+      <div class="field">
+        <label for="id_username">Usuario</label>
+        <input class="control" id="id_username" name="username" autocomplete="username" required autofocus value="{{ form.username.value|default:'' }}">
+      </div>
+      <div class="field">
+        <label for="id_password">Contraseña</label>
+        <input class="control" id="id_password" type="password" name="password" autocomplete="current-password" required>
+      </div>
+      <input type="hidden" name="next" value="{{ next }}">
+      <button class="btn btn-primary" type="submit"><i data-lucide="log-in"></i> Ingresar</button>
+    </form>
+  </section>
+</main>
+{% endblock %}

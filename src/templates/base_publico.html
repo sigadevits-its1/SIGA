@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load static %}
+{# Páginas que ve cualquiera, sin iniciar sesión: formulario, confirmación y login. #}
+
+{% block estilos %}<link rel="stylesheet" href="{% static 'css/formulario.css' %}">{% endblock %}
+
+{% block cuerpo %}
+<header class="site-head">
+  <div class="wrap">
+    <a class="brand" href="/">
+      <span class="brand-mark"><i data-lucide="landmark"></i></span>
+      <span><strong>Instituto Técnico Superior N.º 1</strong><small>SIGA{% if periodo %} · {{ periodo.nombre }}{% endif %}</small></span>
+    </a>
+    <div class="site-help"><i data-lucide="life-buoy"></i><span>¿Dudas? Secretaría atiende de <strong>lunes a viernes, 8 a 13 h</strong></span></div>
+  </div>
+</header>
+
+{% block contenido %}{% endblock %}
+
+<footer class="site-foot">
+  <div class="wrap"><span>© {% now "Y" %} Instituto Técnico Superior N.º 1 · Viedma, Río Negro</span></div>
+</footer>
+{% endblock %}

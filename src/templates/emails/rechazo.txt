@@ -1,0 +1,14 @@
+{% autoescape off %}Hola {{ p.persona.nombre }}:
+
+Revisamos tu solicitud de preinscripción {{ p.numero }} y no pudimos aceptarla.
+
+Motivo:
+{{ p.observaciones }}
+
+Podés volver a preinscribirte completando nuevamente el formulario
+y adjuntando toda la documentación:
+
+  {{ sitio }}/preinscripcion/
+
+Instituto Técnico Superior N.º 1 · Viedma, Río Negro
+{% endautoescape %}

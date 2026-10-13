@@ -1,0 +1,41 @@
+{% extends "base_publico.html" %}
+{% block titulo %}Solicitud enviada{% endblock %}
+
+{% block contenido %}
+<main class="wrap narrow">
+  <div class="grid" style="padding-block: 36px 64px;">
+    <section class="card done-card">
+      <div class="done-icon"><i data-lucide="circle-check"></i></div>
+      <h2>¡Recibimos tu solicitud!</h2>
+      <p class="muted" style="margin-top:6px">Te enviamos una copia a <strong>{{ p.persona.email }}</strong>.</p>
+      <div class="ticket"><small>Número de solicitud</small><strong>{{ p.numero }}</strong></div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Resumen</h2></div><span class="pill tone-blue">{{ p.get_estado_display }}</span></div>
+      <div class="card-body">
+        <dl class="dl">
+          <div><dt>Aspirante</dt><dd>{{ p.persona.nombre_completo }}</dd></div>
+          <div><dt>DNI</dt><dd>{{ p.persona.dni_con_puntos }}</dd></div>
+          <div class="wide"><dt>Carrera</dt><dd>{{ p.periodo_plan.plan.carrera.nombre }}</dd></div>
+          <div><dt>Plan de estudios</dt><dd>{{ p.periodo_plan.plan.nombre }}</dd></div>
+          <div><dt>Período</dt><dd>{{ p.periodo_plan.periodo.nombre }}</dd></div>
+          <div><dt>Fecha de envío</dt><dd>{{ p.fecha_preinscripcion|date:"j M Y, H:i" }}</dd></div>
+          <div><dt>Documentación</dt><dd>{{ p.documentos.count }} archivo{{ p.documentos.count|pluralize }} adjunto{{ p.documentos.count|pluralize }}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>¿Qué sigue?</h2></div></div>
+      <div class="card-body">
+        <ol class="next">
+          <li><span class="n">1</span><div><strong>Secretaría revisa tu solicitud</strong><p>Controla tus datos y la documentación que adjuntaste.</p></div></li>
+          <li><span class="n">2</span><div><strong>Te avisamos el resultado por correo</strong><p>Tu preinscripción puede ser aceptada o rechazada. Si se rechaza, te indicamos el motivo y podés volver a completar el formulario.</p></div></li>
+          <li><span class="n">3</span><div><strong>Si se acepta, ya sos ingresante</strong><p>Te contamos cómo seguir: inicio de clases y acceso al aula virtual.</p></div></li>
+        </ol>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

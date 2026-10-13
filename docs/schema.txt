@@ -1,0 +1,1518 @@
+Project siga_its_modelo_unificado {
+  database_type: "PostgreSQL"
+  Note: '''
+    SIGA ITS - Modelo unificado Gonzalo + Profesor.
+
+    Criterios principales:
+    - Se prioriza la normalización y la trayectoria académica por alumno + plan.
+    - La autenticación/roles se delega a Directus (u otro proveedor externo).
+      personas.usuario_uuid permite vincular la persona académica con el usuario externo.
+    - "cursadas" representa la comisión/oferta de una materia; la inscripción del alumno
+      se registra aparte en inscripciones_cursadas.
+    - Exámenes se modelan como TURNO -> LLAMADO -> MESA.
+    - Actas de cursada y actas de mesa permanecen separadas por tener reglas distintas,
+      pero comparten documentos_actas, firmas e historial de auditoría.
+    - El historial académico NO se duplica en una tabla: debe construirse mediante una VIEW
+      a partir de actas, equivalencias e inscripciones.
+    - Algunas reglas de negocio complejas (correlativas circulares, cambio de plan,
+      consistencia del tipo de período, cierre de actas, etc.) deben reforzarse
+      mediante backend, triggers o constraints SQL específicas.
+  '''
+}
+
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+Enum periodo_cursada {
+  anual
+  cuatrimestre_1
+  cuatrimestre_2
+}
+
+Enum requerida_para {
+  cursar
+  rendir
+}
+
+Enum condicion_correlativa {
+  regular
+  aprobada
+}
+
+Enum tipo_periodo_inscripcion {
+  carrera
+  cursada
+  mesa
+}
+
+Enum estado_periodo_inscripcion {
+  programado
+  abierto
+  cerrado
+  finalizado
+}
+
+Enum estado_preinscripcion {
+  preinscripto
+  lista_espera
+  en_revision
+  confirmado
+  rechazado
+  cancelado
+}
+
+Enum estado_verificacion_documento {
+  pendiente
+  aprobado
+  rechazado
+}
+
+Enum tipo_evaluacion {
+  parcial
+  recuperatorio
+  trabajo_practico
+  coloquio
+  otra
+}
+
+Enum estado_evaluacion {
+  programada
+  realizada
+  cancelada
+}
+
+Enum estado_calificacion {
+  pendiente
+  presente
+  ausente
+  impugnada
+}
+
+Enum estado_clase {
+  programada
+  dictada
+  cancelada
+  reprogramada
+}
+
+Enum estado_justificacion {
+  pendiente
+  aprobada
+  rechazada
+}
+
+Enum estado_solicitud_mesa {
+  pendiente
+  aprobada
+  rechazada
+  cancelada
+}
+
+Enum tipo_acta {
+  cursada
+  mesa
+}
+
+Enum tipo_acta_cursada {
+  regularidad
+  promocion
+}
+
+Enum estado_acta {
+  abierta
+  cerrada
+  anulada
+  rectificada
+}
+
+Enum accion_acta {
+  creacion
+  modificacion
+  cierre
+  firma
+  anulacion
+  rectificacion
+  reimpresion
+  descarga
+}
+
+Enum estado_equivalencia {
+  solicitada
+  en_revision
+  aprobada
+  rechazada
+  anulada
+}
+
+Enum estado_constancia {
+  emitida
+  entregada
+  anulada
+}
+
+enum tipo_documento {
+  DNI 
+  entregada
+  anulada
+}
+
+// ============================================================
+// 1. PERSONAS
+// ============================================================
+
+
+Table personas {
+  id int [pk, increment]
+
+  usuario_uuid uuid [unique, null, note: '''
+    Identificador opcional del usuario del proveedor de autenticación
+    (por ejemplo Directus). Una persona puede existir académicamente
+    aunque todavía no tenga usuario de acceso.
+  ''']
+
+  tipo_documento enum [not null, note: 'Ej.: DNI, Pasaporte, LC, LE']
+  numero_documento varchar(30) [not null]
+
+  nombre varchar(100) [not null]
+  apellido varchar(100) [not null]
+  fecha_nacimiento date [null]
+
+  email varchar(150) [null]
+  telefono varchar(40) [null]
+  foto_perfil varchar(255) [null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (tipo_documento, numero_documento) [unique]
+    email
+  }
+}
+
+
+Table alumnos {
+  id int [pk, increment]
+  persona_id int [not null, unique]
+  legajo varchar(30) [not null, unique]
+  fecha_alta date [not null, default: `current_date`]
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: alumnos.persona_id - personas.id
+
+
+Table docentes {
+  id int [pk, increment]
+  persona_id int [not null, unique]
+  legajo_docente varchar(30) [null, unique]
+  titulo varchar(150) [null]
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: docentes.persona_id - personas.id
+
+
+// ============================================================
+// 2. ESTRUCTURA ACADÉMICA
+// ============================================================
+
+Table carreras {
+  id int [pk, increment]
+  codigo varchar(30) [not null, unique]
+  nombre varchar(150) [not null]
+  descripcion text [null]
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table planes_carreras {
+  id int [pk, increment]
+  carrera_id int [not null]
+
+  codigo varchar(30) [not null]
+  nombre varchar(150) [not null]
+  resolucion varchar(100) [null]
+
+  duracion_anios int [not null]
+  fecha_inicio_vigencia date [not null]
+  fecha_fin_vigencia date [null]
+
+  vigente_para_ingresantes boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `duracion_anios > 0` [name: 'duracion_plan_valida']
+    `fecha_fin_vigencia IS NULL OR fecha_fin_vigencia > fecha_inicio_vigencia` [name: 'vigencia_plan_valida']
+  }
+
+  indexes {
+    (carrera_id, codigo) [unique]
+  }
+
+  Note: '''
+    Debe existir como máximo un plan "vigente_para_ingresantes = true"
+    por carrera. En PostgreSQL conviene reforzarlo con un índice UNIQUE parcial.
+  '''
+}
+
+Ref: planes_carreras.carrera_id > carreras.id
+
+
+Table materias {
+  id int [pk, increment]
+  codigo_general varchar(30) [null, unique]
+  nombre varchar(150) [not null]
+  descripcion text [null]
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: '''
+    La materia es una entidad académica reutilizable.
+    Año, cuatrimestre, carga horaria y carácter pertenecen al PLAN,
+    por eso no se almacenan aquí.
+  '''
+}
+
+
+Table tipos_planes_materias {
+  id int [pk, increment]
+  nombre varchar(80) [not null, unique, note: 'Ej.: obligatoria, optativa, electiva']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table planes_materias {
+  id int [pk, increment]
+  plan_carrera_id int [not null]
+  materia_id int [not null]
+  tipo_plan_materia_id int [not null]
+
+  codigo varchar(30) [null]
+  anio int [not null]
+  periodo periodo_cursada [not null]
+  carga_horaria numeric(6,2) [null]
+
+  promocionable boolean [not null, default: true]
+  activo boolean [not null, default: true]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `anio > 0` [name: 'anio_plan_materia_valido']
+    `carga_horaria IS NULL OR carga_horaria > 0` [name: 'carga_horaria_valida']
+  }
+
+  indexes {
+    (plan_carrera_id, materia_id) [unique]
+    (plan_carrera_id, codigo) [unique]
+  }
+}
+
+Ref: planes_materias.plan_carrera_id > planes_carreras.id
+Ref: planes_materias.materia_id > materias.id
+Ref: planes_materias.tipo_plan_materia_id > tipos_planes_materias.id
+
+
+Table correlativas {
+  id int [pk, increment]
+
+  plan_materia_id int [not null]
+  plan_materia_requerida_id int [not null]
+
+  requerida_para requerida_para [not null]
+  condicion_requerida condicion_correlativa [not null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `plan_materia_id <> plan_materia_requerida_id` [name: 'correlativa_no_puede_ser_ella_misma']
+  }
+
+  indexes {
+    (plan_materia_id, plan_materia_requerida_id, requerida_para) [unique]
+  }
+
+  Note: '''
+    Reglas a validar fuera de este diagrama:
+    1) Ambas materias deben pertenecer al mismo plan.
+    2) No deben existir ciclos A -> B -> A.
+  '''
+}
+
+Ref: correlativas.plan_materia_id > planes_materias.id
+Ref: correlativas.plan_materia_requerida_id > planes_materias.id
+
+
+// ============================================================
+// 3. PERÍODOS DE INSCRIPCIÓN Y PREINSCRIPCIÓN A CARRERA
+// ============================================================
+
+Table periodos_inscripcion {
+  id int [pk, increment]
+  tipo tipo_periodo_inscripcion [not null]
+
+  codigo varchar(30) [not null, unique]
+  nombre varchar(150) [not null]
+  ciclo_lectivo int [not null]
+
+  fecha_desde timestamptz [not null]
+  fecha_hasta timestamptz [not null]
+
+  estado estado_periodo_inscripcion [not null, default: 'programado']
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_hasta > fecha_desde` [name: 'periodo_inscripcion_fechas_validas']
+  }
+}
+
+
+Table periodos_inscripcion_planes {
+  id int [pk, increment]
+  periodo_inscripcion_id int [not null]
+  plan_carrera_id int [not null]
+
+  cupo_ingresantes int [null]
+  cupo_lista_espera int [null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (periodo_inscripcion_id, plan_carrera_id) [unique]
+  }
+
+  Note: '''
+    Se utiliza para los períodos de tipo "carrera".
+    Permite que un mismo período habilite uno o varios planes.
+  '''
+}
+
+Ref: periodos_inscripcion_planes.periodo_inscripcion_id > periodos_inscripcion.id
+Ref: periodos_inscripcion_planes.plan_carrera_id > planes_carreras.id
+
+
+Table preinscripciones {
+  id int [pk, increment]
+
+  persona_id int [not null]
+  periodo_plan_id int [not null]
+
+  estado estado_preinscripcion [not null, default: 'preinscripto']
+  observaciones text [null]
+
+  persona_revisor_id int [null]
+  fecha_revision timestamptz [null]
+
+  fecha_preinscripcion timestamptz [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (persona_id, periodo_plan_id) [unique]
+  }
+
+  Note: '''
+    Al confirmar una preinscripción se crea, si corresponde:
+    - alumnos
+    - alumnos_carreras
+    - estado inicial de la trayectoria académica.
+  '''
+}
+
+Ref: preinscripciones.persona_id > personas.id
+Ref: preinscripciones.periodo_plan_id > periodos_inscripcion_planes.id
+Ref: preinscripciones.persona_revisor_id > personas.id
+
+
+Table tipos_documentos_academicos {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique, note: 'Ej.: DNI, título secundario, analítico, foto carnet']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table planes_requisitos_ingreso {
+  id int [pk, increment]
+
+  plan_carrera_id int [not null]
+  tipo_documento_academico_id int [not null]
+
+  obligatorio boolean [not null, default: true]
+  descripcion varchar(255) [null]
+  activo boolean [not null, default: true]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (plan_carrera_id, tipo_documento_academico_id) [unique]
+  }
+
+  Note: '''
+    Los requisitos documentales pueden variar según el plan/carrera.
+    Por eso la obligatoriedad no se guarda en el tipo de documento global.
+  '''
+}
+
+Ref: planes_requisitos_ingreso.plan_carrera_id > planes_carreras.id
+Ref: planes_requisitos_ingreso.tipo_documento_academico_id > tipos_documentos_academicos.id
+
+
+Table documentos_preinscripciones {
+  id int [pk, increment]
+
+  preinscripcion_id int [not null]
+  tipo_documento_academico_id int [not null]
+
+  nombre_archivo varchar(255) [not null]
+  ruta_archivo varchar(500) [not null]
+
+  estado_verificacion estado_verificacion_documento [not null, default: 'pendiente']
+  observaciones text [null]
+
+  persona_verificador_id int [null]
+  fecha_verificacion timestamptz [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (preinscripcion_id, tipo_documento_academico_id) [unique]
+  }
+}
+
+Ref: documentos_preinscripciones.preinscripcion_id > preinscripciones.id
+Ref: documentos_preinscripciones.tipo_documento_academico_id > tipos_documentos_academicos.id
+Ref: documentos_preinscripciones.persona_verificador_id > personas.id
+
+
+// ============================================================
+// 4. TRAYECTORIA DEL ALUMNO EN CARRERAS Y PLANES
+// ============================================================
+
+Table sedes {
+  id int [pk, increment]
+
+  codigo varchar(20) [not null, unique]
+  nombre varchar(150) [not null]
+
+  localidad varchar(100) [not null]
+  provincia varchar(100) [not null]
+  direccion varchar(200) [null]
+
+  telefono varchar(50) [null]
+  email varchar(150) [null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table ofertas_planes_sedes {
+  id int [pk, increment]
+
+  sede_id int [not null]
+  plan_carrera_id int [not null]
+
+  fecha_desde date [not null]
+  fecha_hasta date [null]
+
+  activo boolean [not null, default: true]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_hasta IS NULL OR fecha_hasta >= fecha_desde` [name: 'fechas_oferta_sede_validas']
+  }
+
+  indexes {
+    (sede_id, plan_carrera_id, fecha_desde) [unique]
+  }
+}
+
+Ref: ofertas_planes_sedes.sede_id > sedes.id
+Ref: ofertas_planes_sedes.plan_carrera_id > planes_carreras.id
+
+Table alumnos_carreras {
+  id int [pk, increment]
+
+  alumno_id int [not null]
+  oferta_plan_sede_id int [not null]
+
+  fecha_ingreso date [not null]
+  fecha_egreso date [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_egreso IS NULL OR fecha_egreso >= fecha_ingreso` [name: 'fechas_alumno_carrera_validas']
+  }
+
+  indexes {
+    (alumno_id, oferta_plan_sede_id, fecha_ingreso) [unique]
+  }
+
+  Note: '''
+    Esta tabla representa una trayectoria concreta de un alumno en un plan.
+    Si cambia de plan, se cierra la trayectoria anterior y se crea una nueva.
+
+    Conviene implementar un índice UNIQUE parcial / trigger que evite más de
+    una trayectoria activa del mismo alumno para la misma carrera cuando
+    institucionalmente eso no esté permitido.
+  '''
+}
+
+Ref: alumnos_carreras.alumno_id > alumnos.id
+Ref: alumnos_carreras.oferta_plan_sede_id > ofertas_planes_sedes.id
+
+
+Table tipos_estados_alumnos_carreras {
+  id int [pk, increment]
+  nombre varchar(80) [not null, unique, note: '''
+    Ej.: pendiente, activo, regular, suspendido, baja,
+    cambio_plan, egresado.
+  ''']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table alumnos_carreras_estados_historial {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+  tipo_estado_id int [not null]
+
+  fecha_desde timestamptz [not null, default: `now()`]
+  fecha_hasta timestamptz [null]
+
+  observaciones text [null]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_hasta IS NULL OR fecha_hasta > fecha_desde` [name: 'historial_estado_fechas_validas']
+  }
+
+  Note: '''
+    Debe haber como máximo un estado vigente (fecha_hasta IS NULL)
+    por alumno_carrera. En PostgreSQL usar UNIQUE parcial.
+  '''
+}
+
+Ref: alumnos_carreras_estados_historial.alumno_carrera_id > alumnos_carreras.id
+Ref: alumnos_carreras_estados_historial.tipo_estado_id > tipos_estados_alumnos_carreras.id
+
+
+Table cambios_plan {
+  id int [pk, increment]
+
+  alumno_carrera_origen_id int [not null]
+  alumno_carrera_destino_id int [not null]
+
+  fecha_cambio date [not null, default: `current_date`]
+  motivo text [null]
+
+  persona_autoriza_id int [null]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `alumno_carrera_origen_id <> alumno_carrera_destino_id` [name: 'cambio_plan_trayectorias_distintas']
+  }
+
+  indexes {
+    alumno_carrera_destino_id [unique]
+  }
+}
+
+Ref: cambios_plan.alumno_carrera_origen_id > alumnos_carreras.id
+Ref: cambios_plan.alumno_carrera_destino_id > alumnos_carreras.id
+Ref: cambios_plan.persona_autoriza_id > personas.id
+
+
+// ============================================================
+// 5. CURSADAS / COMISIONES
+// ============================================================
+
+Table cursadas {
+  id int [pk, increment]
+
+  sede_id int [not null]
+  plan_materia_id int [not null]
+  ciclo_lectivo int [not null]
+  periodo periodo_cursada [not null]
+
+  codigo varchar(30) [null]
+  descripcion varchar(150) [null]
+
+  porcentaje_asistencia_minima numeric(5,2) [not null, default: 75.00]
+  nota_minima_regular numeric(4,2) [not null, default: 4.00]
+  permite_promocion boolean [not null, default: true]
+  nota_minima_promocion numeric(4,2) [null, default: 7.00]
+  meses_vigencia_regularidad int [null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `ciclo_lectivo >= 2000` [name: 'ciclo_lectivo_cursada_valido']
+    `porcentaje_asistencia_minima >= 0 AND porcentaje_asistencia_minima <= 100` [name: 'asistencia_minima_valida']
+    `nota_minima_regular >= 0 AND nota_minima_regular <= 10` [name: 'nota_regular_valida']
+    `nota_minima_promocion IS NULL OR (nota_minima_promocion >= 0 AND nota_minima_promocion <= 10)` [name: 'nota_promocion_valida']
+  }
+
+  indexes {
+    (plan_materia_id, ciclo_lectivo, periodo, codigo) [unique]
+  }
+
+  Note: '''
+    Equivale conceptualmente a una comisión/oferta de cursada.
+    NO contiene al alumno. Los alumnos se vinculan mediante inscripciones_cursadas.
+  '''
+}
+
+Ref: cursadas.plan_materia_id > planes_materias.id
+Ref: cursadas.sede_id > sedes.id
+
+Table cursadas_horarios {
+  id int [pk, increment]
+
+  cursada_id int [not null]
+  dia_semana smallint [not null, note: '1=lunes ... 7=domingo']
+  hora_inicio time [not null]
+  hora_fin time [not null]
+
+  aula varchar(80) [null, note: ''' 
+    Agregando las sedes podria ser conveniente agregar otra tabla de aulas pero por ahora no 
+    lo considero necesario.
+    ''']
+  activo boolean [not null, default: true]
+
+  checks {
+    `dia_semana BETWEEN 1 AND 7` [name: 'dia_semana_cursada_valido']
+    `hora_fin > hora_inicio` [name: 'horario_cursada_valido']
+  }
+
+  indexes {
+    (cursada_id, dia_semana, hora_inicio) [unique]
+  }
+}
+
+Ref: cursadas_horarios.cursada_id > cursadas.id
+
+
+Table roles_docentes {
+  id int [pk, increment]
+  nombre varchar(80) [not null, unique, note: '''
+    Ej.: titular, adjunto, ayudante, presidente, vocal.
+    El uso concreto depende de si el docente participa en cursada o mesa.
+  ''']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table cursadas_docentes {
+  id int [pk, increment]
+
+  cursada_id int [not null]
+  docente_id int [not null]
+  rol_docente_id int [null]
+  fecha_inicio date [note: 'en caso que un suplemente cubra a un docente']
+  fecha_fin date
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (cursada_id, docente_id) [unique]
+  }
+}
+
+Ref: cursadas_docentes.cursada_id > cursadas.id
+Ref: cursadas_docentes.docente_id > docentes.id
+Ref: cursadas_docentes.rol_docente_id > roles_docentes.id
+
+Table cursadas_docentes_hist [note: ''' 
+  Esta tabla sirve para mantener un historico de los profesores que estuviero a cargo de una 
+  cursada, es decir, que si un suplemente agarra una cursada se hace update de ese registro y 
+  el historico queda en esta tabla. 
+  Fecha inicio fecha fin podrian servir para que el administrativo que haga el cambio en el sistema
+  pueda indicar cuando termino uno e inicio el otro.
+  Esta tabla podria llenar a partir de un trigger que se ejecute a partir de un udpate en la tabla 
+  principal 
+  Esta tabla tiene que estar bien documentada porque en caso de que se modifique algun campo de 
+  la tabla cursadas, hay que modificar tambien esta otra tabla para que cuando se ejecute el trigger
+  no se rompa
+'''] {
+  id int [pk, increment]
+
+  cursada_id int [not null]
+  docente_id int [not null]
+  rol_docente_id int [null]
+  fecha_inicio date
+  fecha_fin date
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (cursada_id, docente_id) [unique]
+  }
+}
+
+Table periodos_inscripcion_cursadas {
+  id int [pk, increment]
+
+  periodo_inscripcion_id int [not null]
+  cursada_id int [not null]
+
+  indexes {
+    (periodo_inscripcion_id, cursada_id) [unique]
+  }
+
+  Note: 'El período asociado debe ser de tipo cursada.'
+}
+
+Ref: periodos_inscripcion_cursadas.periodo_inscripcion_id > periodos_inscripcion.id
+Ref: periodos_inscripcion_cursadas.cursada_id > cursadas.id
+
+
+Table inscripciones_cursadas {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+  cursada_id int [not null]
+  estado_inscripcion_id int [not null]
+
+  fecha_inscripcion timestamptz [not null, default: `now()`]
+  observaciones text [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (alumno_carrera_id, cursada_id) [unique]
+  }
+}
+
+Ref: inscripciones_cursadas.alumno_carrera_id > alumnos_carreras.id
+Ref: inscripciones_cursadas.cursada_id > cursadas.id
+
+
+// ============================================================
+// 6. EVALUACIONES, CALIFICACIONES Y ASISTENCIA
+// ============================================================
+
+Table evaluaciones_cursadas {
+  id int [pk, increment]
+
+  cursada_id int [not null]
+  tipo tipo_evaluacion [not null]
+
+  numero_instancia int [not null, default: 1]
+  evaluacion_origen_id int [null, note: 'Útil para relacionar recuperatorio con evaluación original']
+
+  fecha_evaluacion timestamptz [not null]
+  descripcion varchar(255) [null]
+  estado estado_evaluacion [not null, default: 'programada']
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `numero_instancia > 0` [name: 'instancia_evaluacion_valida']
+  }
+
+  indexes {
+    (cursada_id, tipo, numero_instancia) [unique]
+  }
+}
+
+Ref: evaluaciones_cursadas.cursada_id > cursadas.id
+Ref: evaluaciones_cursadas.evaluacion_origen_id > evaluaciones_cursadas.id
+
+
+Table calificaciones_cursadas {
+  id int [pk, increment]
+
+  inscripcion_cursada_id int [not null]
+  evaluacion_cursada_id int [not null]
+
+  estado estado_calificacion [not null, default: 'pendiente']
+  nota numeric(4,2) [null]
+  observaciones varchar(255) [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `nota IS NULL OR (nota >= 0 AND nota <= 10)` [name: 'nota_evaluacion_valida']
+  }
+
+  indexes {
+    (inscripcion_cursada_id, evaluacion_cursada_id) [unique]
+  }
+
+  Note: '''
+    Al vincular la calificación con inscripcion_cursada se evita
+    calificar a un alumno que no está inscripto en esa cursada.
+  '''
+}
+
+Ref: calificaciones_cursadas.inscripcion_cursada_id > inscripciones_cursadas.id
+Ref: calificaciones_cursadas.evaluacion_cursada_id > evaluaciones_cursadas.id
+
+
+Table clases_cursadas {
+  id int [pk, increment]
+
+  cursada_id int [not null]
+  fecha_inicio timestamptz [not null]
+  fecha_fin timestamptz [null]
+
+  tema_tratado varchar(255) [null]
+  estado estado_clase [not null, default: 'programada']
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_fin IS NULL OR fecha_fin > fecha_inicio` [name: 'fecha_clase_valida']
+  }
+}
+
+Ref: clases_cursadas.cursada_id > cursadas.id
+
+
+Table justificaciones_inasistencia {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+  fecha_desde date [not null]
+  fecha_hasta date [not null]
+
+  motivo varchar(100) [not null]
+  observaciones text [null]
+
+  estado estado_justificacion [not null, default: 'pendiente']
+
+  persona_revisor_id int [null]
+  fecha_revision timestamptz [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_hasta >= fecha_desde` [name: 'justificacion_fechas_validas']
+  }
+}
+
+Ref: justificaciones_inasistencia.alumno_carrera_id > alumnos_carreras.id
+Ref: justificaciones_inasistencia.persona_revisor_id > personas.id
+
+
+Table asistencias_clases {
+  id int [pk, increment]
+
+  clase_cursada_id int [not null]
+  inscripcion_cursada_id int [not null]
+
+  presente boolean [not null]
+  justificacion_id int [null]
+  observaciones varchar(255) [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (clase_cursada_id, inscripcion_cursada_id) [unique]
+  }
+}
+
+Ref: asistencias_clases.clase_cursada_id > clases_cursadas.id
+Ref: asistencias_clases.inscripcion_cursada_id > inscripciones_cursadas.id
+Ref: asistencias_clases.justificacion_id > justificaciones_inasistencia.id
+
+
+// ============================================================
+// 7. EXÁMENES: TURNOS -> LLAMADOS -> MESAS
+// ============================================================
+
+Table turnos_examen {
+  id int [pk, increment]
+
+  nombre varchar(100) [not null]
+  ciclo_lectivo int [not null]
+
+  fecha_desde date [not null]
+  fecha_hasta date [not null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `fecha_hasta >= fecha_desde` [name: 'turno_examen_fechas_validas']
+  }
+
+  indexes {
+    (ciclo_lectivo, nombre) [unique]
+  }
+}
+
+
+Table llamados_examen {
+  id int [pk, increment]
+
+  turno_examen_id int [not null]
+  numero_llamado int [not null]
+
+  fecha_desde date [not null]
+  fecha_hasta date [not null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `numero_llamado > 0` [name: 'numero_llamado_valido']
+    `fecha_hasta >= fecha_desde` [name: 'llamado_examen_fechas_validas']
+  }
+
+  indexes {
+    (turno_examen_id, numero_llamado) [unique]
+  }
+}
+
+Ref: llamados_examen.turno_examen_id > turnos_examen.id
+
+
+Table tipos_mesas {
+  id int [pk, increment]
+  nombre varchar(50) [not null, unique, note: 'Ej.: regular, libre, mixta, especial']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table solicitudes_mesas_especiales {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+  plan_materia_id int [not null]
+
+  motivo text [not null]
+  estado estado_solicitud_mesa [not null, default: 'pendiente']
+
+  persona_revisor_id int [null]
+  fecha_revision timestamptz [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: '''
+    Reemplaza los campos es_por_solicitud/alumno_solicita dentro de mesas.
+    La solicitud es un proceso distinto de la mesa que eventualmente se crea.
+  '''
+}
+
+Ref: solicitudes_mesas_especiales.alumno_carrera_id > alumnos_carreras.id
+Ref: solicitudes_mesas_especiales.plan_materia_id > planes_materias.id
+Ref: solicitudes_mesas_especiales.persona_revisor_id > personas.id
+
+
+Table mesas {
+  id int [pk, increment]
+
+  plan_materia_id int [not null]
+  llamado_examen_id int [null, note: 'Puede ser NULL para una mesa especial fuera de un turno/llamado']
+  tipo_mesa_id int [not null]
+  sede_id int [not null]
+
+  solicitud_mesa_especial_id int [null, unique]
+
+  codigo varchar(30) [null]
+  descripcion varchar(150) [null]
+
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: '''
+    Una mesa ordinaria normalmente pertenece a un llamado.
+    Una mesa especial puede nacer de solicitudes_mesas_especiales y eventualmente
+    no pertenecer a un llamado ordinario.
+  '''
+}
+
+Ref: mesas.plan_materia_id > planes_materias.id
+Ref: mesas.llamado_examen_id > llamados_examen.id
+Ref: mesas.tipo_mesa_id > tipos_mesas.id
+Ref: mesas.solicitud_mesa_especial_id > solicitudes_mesas_especiales.id
+Ref: mesas.sede_id > sedes.id
+
+Table mesas_horarios {
+  id int [pk, increment]
+
+  mesa_id int [not null]
+  fecha_inicio timestamptz [not null]
+  fecha_fin timestamptz [null]
+
+  aula varchar(80) [null]
+  activo boolean [not null, default: true]
+
+  checks {
+    `fecha_fin IS NULL OR fecha_fin > fecha_inicio` [name: 'horario_mesa_valido']
+  }
+
+  indexes {
+    (mesa_id, fecha_inicio) [unique]
+  }
+
+  Note: '''
+    Se mantiene como tabla separada para soportar una mesa con más de un
+    horario/instancia física si la institución lo necesita.
+  '''
+}
+
+Ref: mesas_horarios.mesa_id > mesas.id
+
+
+Table mesas_docentes {
+  id int [pk, increment]
+
+  mesa_id int [not null]
+  docente_id int [not null]
+  rol_docente_id int [not null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (mesa_id, docente_id) [unique]
+  }
+}
+
+Ref: mesas_docentes.mesa_id > mesas.id
+Ref: mesas_docentes.docente_id > docentes.id
+Ref: mesas_docentes.rol_docente_id > roles_docentes.id
+
+
+Table periodos_inscripcion_mesas {
+  id int [pk, increment]
+
+  periodo_inscripcion_id int [not null]
+  mesa_id int [not null]
+
+  indexes {
+    (periodo_inscripcion_id, mesa_id) [unique]
+  }
+
+  Note: 'El período asociado debe ser de tipo mesa.'
+}
+
+Ref: periodos_inscripcion_mesas.periodo_inscripcion_id > periodos_inscripcion.id
+Ref: periodos_inscripcion_mesas.mesa_id > mesas.id
+
+
+Table estados_inscripciones_mesas {
+  id int [pk, increment]
+  nombre varchar(50) [not null, unique, note: 'Ej.: pendiente, confirmada, anulada, rechazada, baja']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table inscripciones_mesas {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+  mesa_id int [not null]
+  estado_inscripcion_id int [not null]
+
+  condicion_examen varchar(30) [null, note: 'Ej.: regular o libre, si la institución necesita distinguirlo']
+  fecha_inscripcion timestamptz [not null, default: `now()`]
+
+  observaciones text [null]
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (alumno_carrera_id, mesa_id) [unique]
+  }
+
+  Note: '''
+    Antes de confirmar la inscripción deben validarse las correlativas para rendir
+    y que el alumno no tenga ya acreditada la materia.
+  '''
+}
+
+Ref: inscripciones_mesas.alumno_carrera_id > alumnos_carreras.id
+Ref: inscripciones_mesas.mesa_id > mesas.id
+Ref: inscripciones_mesas.estado_inscripcion_id > estados_inscripciones_mesas.id
+
+
+// ============================================================
+// 8. ACTAS ACADÉMICAS
+// ============================================================
+
+Table documentos_actas {
+  id int [pk, increment]
+
+  numero_acta varchar(40) [not null, unique]
+  tipo tipo_acta [not null]
+
+  estado estado_acta [not null, default: 'abierta']
+
+  fecha_apertura timestamptz [not null, default: `now()`]
+  fecha_cierre timestamptz [null]
+
+  hash_sha256 char(64) [null]
+  observaciones text [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: '''
+    Cabecera documental común de las actas.
+    Las reglas académicas permanecen en actas_cursadas y actas_mesas.
+  '''
+}
+
+
+Table estados_actas_cursadas {
+  id int [pk, increment]
+  nombre varchar(60) [not null, unique, note: '''
+    Ej.: regular, no_regular, promocionado, libre.
+    Definir catálogo según normativa institucional.
+  ''']
+  acredita_materia boolean [not null, default: false]
+  otorga_regularidad boolean [not null, default: false]
+  activo boolean [not null, default: true]
+}
+
+
+Table actas_cursadas {
+  id int [pk, increment]
+
+  documento_acta_id int [not null, unique]
+  cursada_id int [not null]
+  tipo tipo_acta_cursada [not null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (cursada_id, tipo) [unique]
+  }
+
+  Note: '''
+    Separar regularidad y promoción evita forzar resultados diferentes
+    dentro de una única acta cuando la normativa las trata como instancias distintas.
+  '''
+}
+
+Ref: actas_cursadas.documento_acta_id - documentos_actas.id
+Ref: actas_cursadas.cursada_id > cursadas.id
+
+
+Table actas_cursadas_detalles {
+  id int [pk, increment]
+
+  acta_cursada_id int [not null]
+  inscripcion_cursada_id int [not null]
+
+  estado_acta_cursada_id int [not null]
+  nota numeric(4,2) [null]
+  observaciones varchar(255) [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `nota IS NULL OR (nota >= 0 AND nota <= 10)` [name: 'nota_acta_cursada_valida']
+  }
+
+  indexes {
+    (acta_cursada_id, inscripcion_cursada_id) [unique]
+  }
+
+  Note: '''
+    Se vincula con inscripcion_cursada (no directamente con alumno_carrera)
+    para garantizar que el alumno pertenecía a la cursada del acta.
+  '''
+}
+
+Ref: actas_cursadas_detalles.acta_cursada_id > actas_cursadas.id
+Ref: actas_cursadas_detalles.inscripcion_cursada_id > inscripciones_cursadas.id
+Ref: actas_cursadas_detalles.estado_acta_cursada_id > estados_actas_cursadas.id
+
+
+Table estados_actas_mesas {
+  id int [pk, increment]
+  nombre varchar(60) [not null, unique, note: 'Ej.: aprobado, desaprobado, ausente']
+  acredita_materia boolean [not null, default: false]
+  activo boolean [not null, default: true]
+}
+
+
+Table actas_mesas {
+  id int [pk, increment]
+
+  documento_acta_id int [not null, unique]
+  mesa_id int [not null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  Note: '''
+    Una mesa puede tener una o varias actas si la normativa o la organización
+    institucional lo requiere. Por eso mesa_id no es UNIQUE.
+  '''
+}
+
+Ref: actas_mesas.documento_acta_id - documentos_actas.id
+Ref: actas_mesas.mesa_id > mesas.id
+
+
+Table actas_mesas_detalles {
+  id int [pk, increment]
+
+  acta_mesa_id int [not null]
+  inscripcion_mesa_id int [not null]
+
+  estado_acta_mesa_id int [not null]
+  nota numeric(4,2) [null]
+  observaciones varchar(255) [null]
+
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `nota IS NULL OR (nota >= 0 AND nota <= 10)` [name: 'nota_acta_mesa_valida']
+  }
+
+  indexes {
+    (acta_mesa_id, inscripcion_mesa_id) [unique]
+  }
+
+  Note: '''
+    La repetición de intentos NO genera conflicto:
+    cada intento corresponde a una inscripción en una mesa distinta.
+  '''
+}
+
+Ref: actas_mesas_detalles.acta_mesa_id > actas_mesas.id
+Ref: actas_mesas_detalles.inscripcion_mesa_id > inscripciones_mesas.id
+Ref: actas_mesas_detalles.estado_acta_mesa_id > estados_actas_mesas.id
+
+
+// ============================================================
+// 9. FIRMA Y AUDITORÍA DE ACTAS
+// ============================================================
+
+Table actas_firmas [note: 'Para armar reporte con firmas y luego puedan imprimir']{
+  id int [pk, increment]
+  persona_firmante_id int [not null]
+  documento_acta_id int [not null]
+  rol_firma varchar(100) [not null, note: 'Ej.: presidente, vocal, docente responsable, secretario académico']
+  orden_firma int [not null, default: 1]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: actas_firmas.documento_acta_id > documentos_actas.id
+Ref: actas_firmas.persona_firmante_id > personas.id
+
+
+Table actas_historial {
+  id int [pk, increment]
+
+  documento_acta_id int [not null]
+  accion accion_acta [not null]
+
+  persona_actor_id int [null]
+  descripcion text [null]
+  datos_snapshot jsonb [null]
+
+  fecha_evento timestamptz [not null, default: `now()`]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: actas_historial.documento_acta_id > documentos_actas.id
+Ref: actas_historial.persona_actor_id > personas.id
+
+
+// ============================================================
+// 10. EQUIVALENCIAS
+// ============================================================
+
+Table tipos_equivalencias {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique, note: '''
+    Ej.: equivalencia total, regularidad reconocida, equivalencia parcial.
+  ''']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table equivalencias {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+
+  institucion_origen varchar(200) [null]
+  carrera_origen varchar(200) [null]
+
+  estado estado_equivalencia [not null, default: 'solicitada']
+
+  numero_resolucion varchar(80) [null]
+  fecha_resolucion date [null]
+  observaciones text [null]
+
+  persona_revisor_id int [null]
+
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Ref: equivalencias.alumno_carrera_id > alumnos_carreras.id
+Ref: equivalencias.persona_revisor_id > personas.id
+
+
+Table equivalencias_detalles {
+  id int [pk, increment]
+
+  equivalencia_id int [not null]
+  plan_materia_id int [not null]
+  tipo_equivalencia_id int [not null]
+
+  materia_origen varchar(200) [null]
+  nota_origen numeric(4,2) [null]
+  nota_reconocida numeric(4,2) [null]
+
+  observaciones varchar(255) [null]
+  created_at timestamptz [not null, default: `now()`]
+
+  checks {
+    `nota_origen IS NULL OR (nota_origen >= 0 AND nota_origen <= 10)` [name: 'nota_origen_equivalencia_valida']
+    `nota_reconocida IS NULL OR (nota_reconocida >= 0 AND nota_reconocida <= 10)` [name: 'nota_reconocida_equivalencia_valida']
+  }
+
+  indexes {
+    (equivalencia_id, plan_materia_id) [unique]
+  }
+}
+
+Ref: equivalencias_detalles.equivalencia_id > equivalencias.id
+Ref: equivalencias_detalles.plan_materia_id > planes_materias.id
+Ref: equivalencias_detalles.tipo_equivalencia_id > tipos_equivalencias.id
+
+
+// ============================================================
+// 11. CONSTANCIAS
+// ============================================================
+
+Table tipos_constancias {
+  id int [pk, increment]
+  nombre varchar(100) [not null, unique, note: '''
+    Ej.: alumno regular, examen rendido, materias aprobadas,
+    analítico parcial, inscripción a carrera, finalización de estudios.
+  ''']
+  activo boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+
+Table constancias {
+  id int [pk, increment]
+
+  alumno_carrera_id int [not null]
+  tipo_constancia_id int [not null]
+
+  codigo_verificacion varchar(80) [not null, unique]
+
+  nombre_archivo varchar(255) [null]
+  ruta_archivo varchar(500) [null]
+  hash_sha256 char(64) [null]
+
+  estado estado_constancia [not null, default: 'emitida']
+
+  persona_emisor_id int [null]
+  fecha_emision timestamptz [not null, default: `now()`]
+
+  observaciones text [null]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Ref: constancias.alumno_carrera_id > alumnos_carreras.id
+Ref: constancias.tipo_constancia_id > tipos_constancias.id
+Ref: constancias.persona_emisor_id > personas.id
+
+
+// ============================================================
+// 12. HISTORIAL ACADÉMICO - NO PERSISTIR
+// ============================================================
+
+/*
+  RECOMENDACIÓN: crear una VIEW llamada vw_historial_academico.
+
+  No conviene guardar una tabla "historial_academico" porque duplicaría
+  información y podría quedar desincronizada.
+
+  La VIEW debería consolidar, como mínimo:
+
+  1) ACTAS DE CURSADA
+     - regularidades
+     - promociones
+     - notas finales de cursada cuando corresponda
+
+  2) ACTAS DE MESA
+     - aprobados
+     - desaprobados
+     - ausentes
+     - intentos por materia
+
+  3) EQUIVALENCIAS APROBADAS
+     - materias acreditadas por resolución
+
+  4) DATOS DEL PLAN
+     - materia
+     - código
+     - año
+     - período
+     - carrera
+     - plan
+
+  El alumno_carrera_id es la clave central para mantener separada la
+  historia académica de un mismo alumno en distintas carreras/planes.
+*/
+
+
+// ============================================================
+// 13. REGLAS DE NEGOCIO A IMPLEMENTAR FUERA DEL DBML
+// ============================================================
+
+/*
+  1) CORRELATIVAS
+     - validar mismo plan;
+     - impedir ciclos;
+     - validar requisitos al inscribirse a cursada o mesa.
+
+  2) PLANES
+     - máximo un plan vigente para ingresantes por carrera;
+     - al cambiar de plan, cerrar estado de trayectoria anterior y crear nueva;
+     - registrar cambios_plan.
+
+  3) PERÍODOS
+     - periodos_inscripcion_planes solo con período tipo carrera;
+     - periodos_inscripcion_cursadas solo con período tipo cursada;
+     - periodos_inscripcion_mesas solo con período tipo mesa.
+
+  4) ACTAS
+     - una vez cerrada un acta no debe modificarse directamente;
+     - una corrección debe generar rectificación/auditoría;
+     - documento_acta.tipo debe coincidir con la tabla académica relacionada;
+     - los detalles solo pueden incluir inscripciones de la cursada/mesa correspondiente.
+
+  5) MATERIA ACREDITADA
+     Antes de confirmar una inscripción a mesa o una equivalencia:
+     - verificar que la materia no esté ya aprobada por examen;
+     - verificar que no esté promocionada;
+     - verificar que no exista equivalencia aprobada equivalente.
+
+  6) PREINSCRIPCIÓN
+     - al confirmar, validar documentación/requisitos obligatorios;
+     - crear alumno si todavía no existe;
+     - crear alumnos_carreras y su estado inicial.
+
+  7) HISTORIAL ACADÉMICO
+     - implementar como VIEW;
+     - si el rendimiento lo exige, usar MATERIALIZED VIEW con refresco controlado.
+*/

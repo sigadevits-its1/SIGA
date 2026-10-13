@@ -1,0 +1,14 @@
+{% autoescape off %}Hola {{ p.persona.nombre }}:
+
+¡Tu preinscripción {{ p.numero }} fue aceptada!
+
+  Carrera: {{ p.periodo_plan.plan.carrera.nombre }}
+  Período: {{ p.periodo_plan.periodo.nombre }}
+{% if p.observaciones %}
+Observaciones de secretaría:
+{{ p.observaciones }}
+{% endif %}
+Pronto te vamos a escribir con la información de inicio de clases.
+
+Instituto Técnico Superior N.º 1 · Viedma, Río Negro
+{% endautoescape %}

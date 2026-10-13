@@ -1,0 +1,160 @@
+{% extends "base_panel.html" %}
+{% block titulo %}{{ p.persona.nombre_completo }}{% endblock %}
+
+{% block migas %}
+  <span>Admisiones</span><i data-lucide="chevron-right"></i>
+  <a href="{% url 'administracion:bandeja' %}">Aspirantes</a><i data-lucide="chevron-right"></i>
+  <strong>{{ p.persona.nombre_completo }}</strong>
+{% endblock %}
+
+{% block contenido %}
+<div><a class="btn btn-ghost btn-sm" href="{% url 'administracion:bandeja' %}"><i data-lucide="arrow-left"></i> Volver a la bandeja</a></div>
+
+{# ---------- Cabecera con la decisión ---------- #}
+<section class="card profile">
+  <span class="avatar avatar-lg">{{ p.persona.iniciales }}</span>
+  <div style="min-width:0">
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <h1>{{ p.persona.nombre_completo }}</h1>
+      {% include "administracion/estado.html" with estado=p.estado etiqueta=p.get_estado_display %}
+    </div>
+    <div class="sub">
+      <span class="mono">{{ p.numero }}</span>
+      <span><i data-lucide="graduation-cap"></i>{{ p.periodo_plan.plan.carrera.nombre_corto }}</span>
+      <span><i data-lucide="calendar-days"></i>Recibida el {{ p.fecha_preinscripcion|date:"j M Y, H:i" }}</span>
+    </div>
+  </div>
+  <div class="decide">
+    {% if p.esta_pendiente %}
+      <button class="btn btn-danger" type="button" data-abrir="dlg-rechazar"><i data-lucide="x"></i> Rechazar</button>
+      <button class="btn btn-success" type="button" data-abrir="dlg-aceptar"><i data-lucide="check"></i> Aceptar</button>
+    {% else %}
+      <span class="muted">Solicitud resuelta.</span>
+    {% endif %}
+  </div>
+</section>
+
+<div class="layout">
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><div><h2>Datos personales</h2><p>Declarados por el aspirante en el formulario.</p></div></div>
+      <div class="card-body">
+        <dl class="dl">
+          <div><dt>Nombre</dt><dd>{{ p.persona.nombre }}</dd></div>
+          <div><dt>Apellido</dt><dd>{{ p.persona.apellido }}</dd></div>
+          <div><dt>DNI</dt><dd class="num">{{ p.persona.dni_con_puntos }}</dd></div>
+          <div><dt>Fecha de nacimiento</dt><dd>{{ p.persona.fecha_nacimiento|date:"d/m/Y" }} <span class="muted">({{ p.persona.edad }} años)</span></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Contacto</h2></div></div>
+      <div class="card-body">
+        <dl class="dl">
+          <div><dt>Correo electrónico</dt><dd><a href="mailto:{{ p.persona.email }}">{{ p.persona.email }}</a></dd></div>
+          <div><dt>Teléfono celular</dt><dd class="num">{{ p.persona.telefono }}</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <div><h2>Carrera solicitada</h2></div>
+        {% if oferta.libres == 0 %}<span class="pill tone-amber">Cupo cubierto</span>{% else %}<span class="pill tone-green">Con lugares</span>{% endif %}
+      </div>
+      <div class="card-body">
+        <dl class="dl">
+          <div class="wide"><dt>Carrera</dt><dd>{{ p.periodo_plan.plan.carrera.nombre }}</dd></div>
+          <div><dt>Plan de estudios</dt><dd>{{ p.periodo_plan.plan.nombre }}{% if p.periodo_plan.plan.resolucion %} · {{ p.periodo_plan.plan.resolucion }}{% endif %}</dd></div>
+          <div><dt>Período</dt><dd>{{ periodo.nombre }} <span class="muted">({{ periodo.codigo }})</span></dd></div>
+          <div><dt>Cupo de la carrera</dt><dd><span class="num">{{ oferta.ocupados }}{% if oferta.cupo_ingresantes %} / {{ oferta.cupo_ingresantes }}{% endif %}</span> ocupados</dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Documentación</h2><p>Abrí cada archivo para revisarlo antes de resolver.</p></div></div>
+      <div class="card-body">
+        {% for doc in documentos %}
+          <div class="doc">
+            <span class="thumb"><i data-lucide="{% if doc.extension == 'PDF' %}file-text{% else %}image{% endif %}"></i><em>{{ doc.extension }}</em></span>
+            <div style="min-width:0">
+              <strong>{{ doc.get_tipo_display }}</strong>
+              <small>{{ doc.nombre_original }} · {{ doc.archivo.size|filesizeformat }}</small>
+            </div>
+            <a class="btn btn-sm" href="{% url 'administracion:documento' doc.pk %}" target="_blank" rel="noopener"><i data-lucide="eye"></i> Ver</a>
+          </div>
+        {% empty %}
+          <p class="muted">No adjuntó documentación.</p>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="col">
+    <section class="card">
+      <div class="card-head"><div><h2>Resolución</h2></div></div>
+      <div class="card-body resolution">
+        <div class="state"><span class="muted">Estado actual</span>{% include "administracion/estado.html" with estado=p.estado etiqueta=p.get_estado_display %}</div>
+        <dl class="dl" style="grid-template-columns:1fr 1fr">
+          <div><dt>Resuelta por</dt><dd>{% if p.revisor %}{{ p.revisor.get_full_name|default:p.revisor.username }}{% else %}<span class="subtle">Pendiente</span>{% endif %}</dd></div>
+          <div><dt>Fecha</dt><dd>{% if p.fecha_revision %}{{ p.fecha_revision|date:"j M Y, H:i" }}{% else %}<span class="subtle">Pendiente</span>{% endif %}</dd></div>
+        </dl>
+        {% if p.observaciones %}
+          <div><div class="label-sm">{% if p.estado == 'rechazado' %}Motivo del rechazo{% else %}Observaciones{% endif %}</div><blockquote>{{ p.observaciones }}</blockquote></div>
+        {% endif %}
+        {% if p.esta_pendiente %}
+          <div class="notice"><i data-lucide="info"></i><span>La solicitud se acepta o se rechaza completa. Si se rechaza, el aspirante recibe el motivo por correo y tiene que volver a completar el formulario.</span></div>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+</div>
+
+{% if p.esta_pendiente %}
+  {# ---------- Diálogo: aceptar ---------- #}
+  <dialog class="modal" id="dlg-aceptar" aria-labelledby="dlg-aceptar-titulo">
+    <form method="post" action="{% url 'administracion:aceptar' p.pk %}">
+      {% csrf_token %}
+      <header>
+        <div><h3 id="dlg-aceptar-titulo">Aceptar a {{ p.persona.nombre_completo }}</h3><p>{{ p.numero }} · {{ p.periodo_plan.plan.carrera.nombre_corto }}</p></div>
+        <button class="btn btn-ghost btn-icon" type="button" data-cerrar aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </header>
+      <div class="modal-body">
+        <div class="field">
+          <label for="obs-aceptar">Observaciones</label>
+          <textarea class="control" id="obs-aceptar" name="observaciones" placeholder="Opcional. Se incluyen en el correo al aspirante."></textarea>
+        </div>
+        <div class="notice ok"><i data-lucide="mail"></i><span>Le avisamos por correo a {{ p.persona.email }}.</span></div>
+      </div>
+      <footer>
+        <button class="btn" type="button" data-cerrar>Cancelar</button>
+        <button class="btn btn-success" type="submit"><i data-lucide="check"></i> Aceptar solicitud</button>
+      </footer>
+    </form>
+  </dialog>
+
+  {# ---------- Diálogo: rechazar ---------- #}
+  <dialog class="modal" id="dlg-rechazar" aria-labelledby="dlg-rechazar-titulo">
+    <form method="post" action="{% url 'administracion:rechazar' p.pk %}">
+      {% csrf_token %}
+      <header>
+        <div><h3 id="dlg-rechazar-titulo">Rechazar la solicitud de {{ p.persona.nombre_completo }}</h3><p>{{ p.numero }} · {{ p.periodo_plan.plan.carrera.nombre_corto }}</p></div>
+        <button class="btn btn-ghost btn-icon" type="button" data-cerrar aria-label="Cerrar"><i data-lucide="x"></i></button>
+      </header>
+      <div class="modal-body">
+        <div class="field">
+          <label for="motivo">Motivo del rechazo <span class="req">*</span></label>
+          <textarea class="control" id="motivo" name="motivo" required placeholder="Por ejemplo: el DNI no se lee. Se le envía al aspirante."></textarea>
+        </div>
+        <div class="notice warn"><i data-lucide="mail"></i><span>El aspirante recibe el motivo en {{ p.persona.email }} y tiene que volver a completar el formulario desde cero.</span></div>
+      </div>
+      <footer>
+        <button class="btn" type="button" data-cerrar>Cancelar</button>
+        <button class="btn btn-danger" type="submit"><i data-lucide="x"></i> Rechazar solicitud</button>
+      </footer>
+    </form>
+  </dialog>
+{% endif %}
+{% endblock %}

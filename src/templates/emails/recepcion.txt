@@ -1,0 +1,14 @@
+{% autoescape off %}Hola {{ p.persona.nombre }}:
+
+Recibimos tu solicitud de preinscripción.
+
+  Número de solicitud: {{ p.numero }}
+  Carrera: {{ p.periodo_plan.plan.carrera.nombre }}
+  Período: {{ p.periodo_plan.periodo.nombre }}
+
+Guardá este número: te lo vamos a pedir si consultás por tu inscripción.
+Secretaría va a revisar tus datos y tu documentación, y te vamos a avisar
+por este medio si tu preinscripción fue aceptada o no.
+
+Instituto Técnico Superior N.º 1 · Viedma, Río Negro
+{% endautoescape %}

@@ -1,0 +1,166 @@
+{% extends "base_publico.html" %}
+{% load static %}
+{% block titulo %}Preinscripción{% endblock %}
+
+{% block contenido %}
+<section class="hero">
+  <div class="wrap narrow">
+    <span class="chip"><i data-lucide="graduation-cap" class="i-sm"></i> {{ periodo.nombre }}</span>
+    <h1>Solicitud de preinscripción</h1>
+    <p>Completá tus datos, elegí la carrera y adjuntá la documentación. No necesitás crear una cuenta: al enviar te llega por correo el número de tu solicitud.</p>
+  </div>
+</section>
+
+{# Barra de pasos: queda fija arriba al hacer scroll (position: sticky) #}
+<nav class="steps-bar" aria-label="Pasos del formulario">
+  <ol class="steps wrap narrow">
+    <li data-step="personales"><a href="#sec-personales"><span class="dot">1</span><span class="label">Tus datos</span></a></li>
+    <li class="sep" aria-hidden="true"></li>
+    <li data-step="carrera"><a href="#sec-carrera"><span class="dot">2</span><span class="label">Carrera</span></a></li>
+    <li class="sep" aria-hidden="true"></li>
+    <li data-step="docs"><a href="#sec-docs"><span class="dot">3</span><span class="label">Documentación</span></a></li>
+    <li class="sep" aria-hidden="true"></li>
+    <li data-step="envio"><a href="#sec-envio"><span class="dot">4</span><span class="label">Envío</span></a></li>
+  </ol>
+</nav>
+
+<main class="wrap narrow form-main">
+  <form class="preinscripcion" method="post" enctype="multipart/form-data" novalidate>
+    {% csrf_token %}
+
+    <div class="period">
+      <span class="live">Inscripción abierta</span>
+      <span>Período <strong>{{ periodo.nombre }}</strong> · hasta el <strong>{{ periodo.fecha_hasta|date:"j \d\e F" }}</strong></span>
+    </div>
+
+    {% if form.errors %}
+      <div class="notice warn">
+        <i data-lucide="triangle-alert"></i>
+        <span>Revisá los campos marcados.{% if request.FILES %} Por seguridad, tenés que <strong>volver a adjuntar los archivos</strong>.{% endif %}
+          {% for error in form.non_field_errors %}<br>{{ error }}{% endfor %}</span>
+      </div>
+    {% endif %}
+
+    {# ---------- Paso 1: datos personales y contacto ---------- #}
+    <section class="card" id="sec-personales">
+      <div class="card-head"><div><h2>Datos personales</h2><p>Escribilos tal como figuran en tu documento de identidad.</p></div></div>
+      <div class="card-body grid">
+        <div class="grid cols-2">
+          {% include "includes/campo.html" with campo=form.nombre etiqueta="Nombre" %}
+          {% include "includes/campo.html" with campo=form.apellido etiqueta="Apellido" %}
+        </div>
+        <div class="grid cols-2">
+          {% include "includes/campo.html" with campo=form.dni etiqueta="Número de DNI" ayuda="Sin puntos ni espacios." %}
+          {% include "includes/campo.html" with campo=form.fecha_nacimiento etiqueta="Fecha de nacimiento" %}
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><div><h2>Datos de contacto</h2><p>Por acá te avisamos el resultado de tu solicitud.</p></div></div>
+      <div class="card-body grid">
+        <div class="grid cols-2">
+          {% include "includes/campo.html" with campo=form.email etiqueta="Correo electrónico" icono="mail" %}
+          {% include "includes/campo.html" with campo=form.email_confirmacion etiqueta="Repetí el correo" icono="mail" %}
+        </div>
+        <div class="grid cols-2">
+          {% include "includes/campo.html" with campo=form.telefono etiqueta="Teléfono celular" icono="phone" ayuda="Con código de área, preferentemente con WhatsApp." %}
+        </div>
+      </div>
+    </section>
+
+    {# ---------- Paso 2: carrera ---------- #}
+    <section class="card" id="sec-carrera">
+      <div class="card-head"><div><h2>Carrera</h2><p>El plan de estudios se asigna automáticamente.</p></div></div>
+      <div class="card-body">
+        <div class="field{% if form.oferta.errors %} invalid{% endif %}">
+          <span class="label" id="lbl-carrera">Elegí una carrera <span class="req">*</span></span>
+          <div class="careers" role="radiogroup" aria-labelledby="lbl-carrera">
+            {% for oferta in ofertas %}
+              {# Una carrera sin cupo se muestra, pero deshabilitada #}
+              <label class="career{% if oferta.libres == 0 %} sin-cupo{% endif %}">
+                <input type="radio" name="oferta" value="{{ oferta.pk }}"
+                       {% if oferta.libres == 0 %}disabled{% elif form.oferta.value|stringformat:"s" == oferta.pk|stringformat:"s" %}checked{% endif %}>
+                <span class="radio" aria-hidden="true"></span>
+                <span>
+                  <strong>{{ oferta.plan.carrera.nombre }}</strong>
+                  <small>{{ oferta.plan.nombre }}{% if oferta.plan.resolucion %} · {{ oferta.plan.resolucion }}{% endif %}</small>
+                </span>
+                {% if oferta.libres == 0 %}
+                  <span class="seats subtle">Sin cupo</span>
+                {% elif oferta.libres is None or oferta.libres > 3 %}
+                  <span class="seats text-green">Hay lugares</span>
+                {% else %}
+                  <span class="seats text-amber">Quedan {{ oferta.libres }} lugar{{ oferta.libres|pluralize:"es" }}</span>
+                {% endif %}
+              </label>
+            {% empty %}
+              <p class="muted">No hay carreras habilitadas en este período.</p>
+            {% endfor %}
+          </div>
+          {{ form.oferta.errors }}
+        </div>
+      </div>
+    </section>
+
+    {# ---------- Paso 3: documentación ---------- #}
+    <section class="card" id="sec-docs">
+      <div class="card-head"><div><h2>Documentación</h2><p>PDF, JPG o PNG de hasta 10 MB. Que se lean bien y estén completos.</p></div></div>
+      <div class="card-body files">
+
+        {% include "preinscripcion/archivo.html" with campo=form.archivo_dni nombre="Documento de identidad" detalle="Frente y dorso en un solo archivo" icono="id-card" %}
+
+        <div class="titulo-box">
+          <div class="segmented" role="radiogroup" aria-label="Situación del título secundario">
+            {% for opcion in form.titulo_situacion %}
+              <label>
+                <input type="radio" name="titulo_situacion" value="{{ opcion.data.value }}"
+                       data-label="{% if opcion.data.value == 'titulo' %}Título secundario{% else %}Constancia de título en trámite{% endif %}"
+                       {% if opcion.data.selected %}checked{% endif %}>
+                {{ opcion.choice_label }}
+              </label>
+            {% endfor %}
+          </div>
+          {% if form.titulo_situacion.value == "titulo_en_tramite" %}
+            {% include "preinscripcion/archivo.html" with campo=form.archivo_titulo nombre="Constancia de título en trámite" detalle="Adjuntá el título o la constancia, uno de los dos" icono="file-up" nombre_id="titulo-nombre" %}
+          {% else %}
+            {% include "preinscripcion/archivo.html" with campo=form.archivo_titulo nombre="Título secundario" detalle="Adjuntá el título o la constancia, uno de los dos" icono="file-up" nombre_id="titulo-nombre" %}
+          {% endif %}
+        </div>
+
+        {% include "preinscripcion/archivo.html" with campo=form.archivo_analitico nombre="Certificado analítico" detalle="Analítico del nivel secundario" icono="file-up" opcional=True %}
+      </div>
+    </section>
+
+    {# ---------- Paso 4: declaración y envío ---------- #}
+    <section class="card" id="sec-envio">
+      <div class="card-head"><div><h2>Declaración y envío</h2></div></div>
+      <div class="card-body grid">
+        <label class="check" for="id_declaracion">
+          <input type="checkbox" id="id_declaracion" name="declaracion" {% if form.declaracion.value %}checked{% endif %}>
+          <span><strong>Declaro que la información es correcta</strong><span>Los datos y documentos que presento son auténticos y están vigentes.</span></span>
+        </label>
+        <label class="check" for="id_privacidad">
+          <input type="checkbox" id="id_privacidad" name="privacidad" {% if form.privacidad.value %}checked{% endif %}>
+          <span><strong>Acepto el tratamiento de mis datos personales</strong><span>Autorizo al instituto a usarlos sólo para gestionar esta solicitud, según la Ley 25.326.</span></span>
+        </label>
+        {% if form.declaracion.errors or form.privacidad.errors %}
+          <ul class="errorlist"><li>Tenés que aceptar ambas declaraciones para enviar.</li></ul>
+        {% endif %}
+
+        {# Campo trampa contra envíos automatizados: una persona no lo ve #}
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+        <div class="notice"><i data-lucide="info"></i><span>Al enviar recibís un correo con tu número de solicitud. Guardalo: te lo vamos a pedir si consultás por tu inscripción.</span></div>
+      </div>
+    </section>
+
+    <div class="submit-row">
+      <span class="muted">Los campos con <span style="color:var(--red)">*</span> son obligatorios.</span>
+      <button class="btn btn-primary" type="submit"><i data-lucide="send"></i> Enviar solicitud</button>
+    </div>
+  </form>
+</main>
+{% endblock %}
+
+{% block scripts %}<script src="{% static 'js/formulario.js' %}"></script>{% endblock %}
