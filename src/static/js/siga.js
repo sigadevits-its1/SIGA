@@ -21,6 +21,23 @@ document.addEventListener('DOMContentLoaded', function () {
     boton.addEventListener('click', function () { boton.closest('dialog').close(); });
   });
 
+  // Tarjeta del período: se minimiza y el navegador lo recuerda
+  var periodo = document.getElementById('periodo-card');
+  if (periodo) {
+    var cabecera = periodo.querySelector('.periodo-head');
+    var CLAVE = 'siga.periodoMinimizado';
+    var aplicar = function (minimizada) {
+      periodo.classList.toggle('minimizada', minimizada);
+      cabecera.setAttribute('aria-expanded', String(!minimizada));
+    };
+    try { aplicar(localStorage.getItem(CLAVE) === '1'); } catch (e) { /* sin almacenamiento: queda abierta */ }
+    cabecera.addEventListener('click', function () {
+      var minimizada = !periodo.classList.contains('minimizada');
+      aplicar(minimizada);
+      try { localStorage.setItem(CLAVE, minimizada ? '1' : '0'); } catch (e) { /* no importa */ }
+    });
+  }
+
   // Mensajes de Django (messages) como aviso flotante que se oculta solo
   document.querySelectorAll('.toast').forEach(function (toast) {
     requestAnimationFrame(function () { toast.classList.add('show'); });

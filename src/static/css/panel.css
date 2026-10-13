@@ -21,8 +21,22 @@
 .nav a[aria-current="page"] .count { background: #fff; color: var(--navy); }
 .nav a.soon { opacity: .6; }
 .nav a.soon::after { content: "Admin"; margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--subtle); }
-.side-foot { margin-top: auto; padding: 14px; border-radius: 12px; background: var(--navy); color: #d6deeb; font-size: 12.5px; }
-.side-foot strong { display: block; color: #fff; font-size: 13.5px; margin: 8px 0 3px; }
+/* Tarjeta del período, abajo de la barra lateral. Se minimiza a una sola línea. */
+.periodo-card { margin-top: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); font-size: 12.5px; }
+.periodo-head { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; border-radius: 10px; }
+.periodo-head:focus-visible { outline: 2px solid var(--focus); }
+.periodo-dot { width: 8px; height: 8px; border-radius: 50%; background: #46d38a; box-shadow: 0 0 0 3px rgba(70, 211, 138, .2); flex: none; }
+.periodo-dot.cerrado { background: var(--subtle); box-shadow: none; }
+.periodo-nombre { font-weight: 650; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.periodo-estado { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--green); }
+.periodo-flecha { width: 15px !important; height: 15px !important; color: var(--subtle); transition: transform .15s; }
+.periodo-detalle { display: grid; gap: 6px; padding: 0 12px 12px; color: var(--muted); }
+.periodo-fechas { display: flex; justify-content: space-between; font-size: 11.5px; }
+.periodo-barra { height: 4px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.periodo-barra span { display: block; height: 100%; border-radius: 999px; background: var(--navy-600); }
+.periodo-detalle small { font-size: 11.5px; color: var(--subtle); }
+.periodo-card.minimizada .periodo-detalle { display: none; }
+.periodo-card.minimizada .periodo-flecha { transform: rotate(-90deg); }
 
 /* Topbar */
 .main { min-width: 0; display: flex; flex-direction: column; }

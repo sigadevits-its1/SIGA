@@ -119,6 +119,17 @@ class PeriodoInscripcion(models.Model):
     def esta_abierto(self):
         return self.fecha_desde <= timezone.now() <= self.fecha_hasta
 
+    @property
+    def dias_restantes(self):
+        return max((self.fecha_hasta - timezone.now()).days, 0)
+
+    @property
+    def porcentaje_transcurrido(self):
+        """Qué parte del período ya pasó, de 0 a 100 (para la barra de progreso)."""
+        total = (self.fecha_hasta - self.fecha_desde).total_seconds()
+        pasado = (timezone.now() - self.fecha_desde).total_seconds()
+        return round(min(max(pasado / total, 0), 1) * 100)
+
 
 class PeriodoPlan(models.Model):
     """Un plan que se ofrece en un período, con su cupo. Es lo que elige el aspirante."""

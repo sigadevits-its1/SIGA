@@ -30,11 +30,27 @@
     {% endif %}
 
     {% if periodo %}
-      <div class="side-foot">
-        <i data-lucide="calendar-days"></i>
-        <strong>{{ periodo.nombre }} {% if periodo.esta_abierto %}abierto{% else %}cerrado{% endif %}</strong>
-        <span>Del {{ periodo.fecha_desde|date:"j M" }} al {{ periodo.fecha_hasta|date:"j M Y" }}.</span>
-      </div>
+      {# Estado del período. Se puede minimizar con la flecha; se recuerda en el navegador. #}
+      <section class="periodo-card" id="periodo-card">
+        <button class="periodo-head" type="button" aria-expanded="true" aria-controls="periodo-detalle">
+          <span class="periodo-dot{% if not periodo.esta_abierto %} cerrado{% endif %}" aria-hidden="true"></span>
+          <span class="periodo-nombre">{{ periodo.nombre }}</span>
+          <span class="periodo-estado">{% if periodo.esta_abierto %}Abierto{% else %}Cerrado{% endif %}</span>
+          <i data-lucide="chevron-down" class="periodo-flecha"></i>
+        </button>
+        <div class="periodo-detalle" id="periodo-detalle">
+          <div class="periodo-fechas">
+            <span>{{ periodo.fecha_desde|date:"j M" }}</span>
+            <span>{{ periodo.fecha_hasta|date:"j M Y" }}</span>
+          </div>
+          <div class="periodo-barra" role="img" aria-label="Transcurrió el {{ periodo.porcentaje_transcurrido }}% del período">
+            <span style="width: {{ periodo.porcentaje_transcurrido }}%"></span>
+          </div>
+          {% if periodo.esta_abierto %}
+            <small>Cierra en {{ periodo.dias_restantes }} día{{ periodo.dias_restantes|pluralize }}</small>
+          {% endif %}
+        </div>
+      </section>
     {% endif %}
   </aside>
 
