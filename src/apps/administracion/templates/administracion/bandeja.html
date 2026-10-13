@@ -72,6 +72,7 @@
 
   <div class="meta">{{ pagina.paginator.count }} resultado{{ pagina.paginator.count|pluralize }}</div>
 
+  {% if pagina.object_list %}
   <div class="table-wrap">
     <table>
       <thead>
@@ -95,12 +96,25 @@
             <td>{% include "administracion/estado.html" with estado=p.estado etiqueta=p.get_estado_display %}</td>
             <td style="text-align:right"><a class="btn btn-sm" href="{% url 'administracion:ficha' p.pk %}">Ficha <i data-lucide="chevron-right" class="i-sm"></i></a></td>
           </tr>
-        {% empty %}
-          <tr><td colspan="6"><div class="empty"><strong>No hay aspirantes con esos filtros</strong>Probá con otra búsqueda o quitá algún filtro.</div></td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {% else %}
+    {# Sin resultados: mensaje con ícono, fuera de la tabla para que no se corte en pantallas chicas #}
+    <div class="empty">
+      {% if f.q or f.estado or f.carrera %}
+        <span class="empty-ico"><i data-lucide="search-x"></i></span>
+        <strong>No hay aspirantes con esos filtros</strong>
+        <p>Probá con otra búsqueda o quitá algún filtro.</p>
+        <a class="btn btn-sm" href="?">Quitar filtros</a>
+      {% else %}
+        <span class="empty-ico"><i data-lucide="inbox"></i></span>
+        <strong>Todavía no hay preinscriptos</strong>
+        <p>Las solicitudes que lleguen por el formulario público van a aparecer acá.</p>
+      {% endif %}
+    </div>
+  {% endif %}
 
   {% if pagina.paginator.num_pages > 1 %}
     <div class="pager">

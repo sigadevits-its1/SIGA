@@ -108,8 +108,12 @@ tbody tr:hover { background: #fafbfd; }
 .docs { display: inline-flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; white-space: nowrap; color: var(--muted); }
 .docs svg.lucide { width: 16px; height: 16px; }
 .id { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.empty { padding: 48px 16px; text-align: center; color: var(--muted); }
-.empty strong { display: block; color: var(--text); font-size: 15px; margin-bottom: 4px; }
+.empty { padding: 56px 16px; display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center; color: var(--muted); }
+.empty-ico { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 12px; border-radius: 50%; background: var(--navy-050); color: var(--navy-600); }
+.empty-ico svg.lucide { width: 26px; height: 26px; }
+.empty strong { color: var(--text); font-size: 15px; }
+.empty .btn { margin-top: 12px; }
+.empty { border-top: 1px solid var(--border); }
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; color: var(--muted); font-size: 13px; flex-wrap: wrap; }
 .pages { display: flex; gap: 6px; align-items: center; }
 
