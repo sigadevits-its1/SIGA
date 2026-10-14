@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SIGA · Preinscripción</title>
+  <style>
+    @media only screen and (max-width: 480px) {
+      .email-wrapper { padding: 16px 8px !important; }
+      .email-padding { padding-left: 20px !important; padding-right: 20px !important; }
+      .email-title { font-size: 25px !important; line-height: 32px !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; width: 100%; background-color: #f4f6f9; color: #13213a; font-family: Arial, Helvetica, sans-serif; -webkit-text-size-adjust: 100%;">
+  <div style="display: none; max-height: 0; overflow: hidden; opacity: 0; mso-hide: all;">{% block preheader %}{% endblock %}</div>
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f4f6f9" style="width: 100%; background-color: #f4f6f9; color: #13213a; font-family: Arial, Helvetica, sans-serif;">
+    <tr>
+      <td align="center" class="email-wrapper" style="padding: 40px 16px;">
+        <!--[if mso]><table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0"><tr><td><![endif]-->
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="width: 100%; max-width: 600px; background-color: #ffffff; border: 1px solid #e2e7ee; border-radius: 12px; border-spacing: 0;">
+          <tr>
+            <td class="email-padding" bgcolor="#13294b" style="padding: 28px 36px; background-color: #13294b; border-radius: 12px 12px 0 0;">
+              <p style="margin: 0 0 8px; color: #ffffff; font-size: 30px; line-height: 34px; font-weight: 700; letter-spacing: -1px;">SIGA<span style="color: #46d38a;">.</span></p>
+              <p style="margin: 0; color: #d4dfef; font-size: 13px; line-height: 20px;">Instituto Técnico Superior N.º 1<br>Viedma, Río Negro</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="padding: 32px 36px 0;">
+              <span style="display: inline-block; padding: 6px 12px; border-radius: 20px; background-color: {% block estado_fondo %}#e8f0fc{% endblock %}; color: {% block estado_color %}#1f5fc4{% endblock %}; font-size: 12px; line-height: 18px; font-weight: 700;">{% block estado %}{% endblock %}</span>
+              <h1 class="email-title" style="margin: 16px 0 24px; color: #13294b; font-size: 28px; line-height: 36px; font-weight: 700;">{% block titulo %}{% endblock %}</h1>
+              <p style="margin: 0 0 12px; font-size: 16px; line-height: 25px; overflow-wrap: anywhere; word-break: break-word;">Hola {{ p.persona.nombre }}:</p>
+              <p style="margin: 0 0 24px; color: #56667d; font-size: 15px; line-height: 24px;">{% block introduccion %}{% endblock %}</p>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="padding: 0 36px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f8fafc" style="width: 100%; background-color: #f8fafc; border: 1px solid #e2e7ee; border-radius: 8px;">
+                <tr>
+                  <td style="padding: 20px;">
+                    <p style="margin: 0 0 6px; color: #56667d; font-size: 11px; line-height: 16px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Número de solicitud</p>
+                    <p style="margin: 0 0 18px; color: #13294b; font-family: 'Courier New', Courier, monospace; font-size: 20px; line-height: 28px; font-weight: 700; overflow-wrap: anywhere;">{{ p.numero }}</p>
+                    <p style="margin: 0 0 4px; color: #56667d; font-size: 12px; line-height: 18px;">Carrera</p>
+                    <p style="margin: 0 0 14px; color: #13213a; font-size: 15px; line-height: 23px; font-weight: 700; overflow-wrap: anywhere;">{{ p.periodo_plan.plan.carrera.nombre }}</p>
+                    <p style="margin: 0 0 4px; color: #56667d; font-size: 12px; line-height: 18px;">Período</p>
+                    <p style="margin: 0; color: #13213a; font-size: 15px; line-height: 23px; overflow-wrap: anywhere;">{{ p.periodo_plan.periodo.nombre }}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="padding: 24px 36px 32px; font-size: 15px; line-height: 24px; color: #56667d;">
+              {% block contenido %}{% endblock %}
+            </td>
+          </tr>
+          <tr>
+            <td class="email-padding" style="padding: 24px 36px; border-top: 1px solid #e2e7ee;">
+              <p style="margin: 0 0 4px; color: #13294b; font-size: 13px; line-height: 20px; font-weight: 700;">Secretaría · ITS N.º 1</p>
+              <p style="margin: 0; color: #56667d; font-size: 12px; line-height: 19px;">Sistema Integral de Gestión Académica<br>Conservá este correo como referencia de tu preinscripción.</p>
+            </td>
+          </tr>
+        </table>
+        <!--[if mso]></td></tr></table><![endif]-->
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

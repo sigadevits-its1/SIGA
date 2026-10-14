@@ -1,0 +1,12 @@
+{% extends "emails/base.html" %}
+
+{% block preheader %}Recibimos tu solicitud {{ p.numero }}. Secretaría va a revisar tus datos y tu documentación.{% endblock %}
+{% block estado %}Solicitud recibida{% endblock %}
+{% block titulo %}Recibimos tu preinscripción{% endblock %}
+{% block introduccion %}Tu solicitud se envió correctamente. Ya tenemos tus datos y la documentación para revisar.{% endblock %}
+
+{% block contenido %}
+  <h2 style="margin: 0 0 10px; color: #13294b; font-size: 17px; line-height: 24px;">¿Cómo sigue el proceso?</h2>
+  <p style="margin: 0 0 16px;">Secretaría va a revisar tu solicitud. Te vamos a avisar por este medio si tu preinscripción fue aceptada o no.</p>
+  <p style="margin: 0;">Guardá el número de solicitud: te lo vamos a pedir si consultás por tu inscripción.</p>
+{% endblock %}

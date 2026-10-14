@@ -1,0 +1,22 @@
+{% extends "emails/base.html" %}
+
+{% block preheader %}Revisamos tu solicitud {{ p.numero }}. Consultá el motivo y cómo volver a preinscribirte.{% endblock %}
+{% block estado_fondo %}#fcebea{% endblock %}
+{% block estado_color %}#bf3a30{% endblock %}
+{% block estado %}Preinscripción rechazada{% endblock %}
+{% block titulo %}Tu preinscripción no fue aceptada{% endblock %}
+{% block introduccion %}Revisamos tu solicitud de preinscripción y no pudimos aceptarla. Te compartimos el motivo para que puedas corregirlo.{% endblock %}
+
+{% block contenido %}
+  {% include "emails/observaciones.html" with titulo="Motivo del rechazo" %}
+  <h2 style="margin: 0 0 10px; color: #13294b; font-size: 17px; line-height: 24px;">Podés volver a preinscribirte</h2>
+  <p style="margin: 0 0 20px;">Completá nuevamente el formulario y adjuntá toda la documentación, teniendo en cuenta el motivo indicado.</p>
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0 0 16px;">
+    <tr>
+      <td align="center" bgcolor="#13294b" style="background-color: #13294b; border-radius: 6px; mso-padding-alt: 14px 20px;">
+        <a href="{{ sitio }}/preinscripcion/" style="display: inline-block; padding: 14px 20px; color: #ffffff; font-size: 14px; line-height: 20px; font-weight: 700; text-decoration: none; border: 1px solid #13294b; border-radius: 6px;">Volver a preinscribirme</a>
+      </td>
+    </tr>
+  </table>
+  <p style="margin: 0; font-size: 12px; line-height: 20px;">Si el botón no funciona, abrí este enlace:<br><a href="{{ sitio }}/preinscripcion/" style="color: #1f5fc4; text-decoration: underline; overflow-wrap: anywhere; word-break: break-word;">{{ sitio }}/preinscripcion/</a></p>
+{% endblock %}

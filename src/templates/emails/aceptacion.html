@@ -1,0 +1,16 @@
+{% extends "emails/base.html" %}
+
+{% block preheader %}Tu preinscripción {{ p.numero }} fue aceptada. Pronto recibirás la información de inicio de clases.{% endblock %}
+{% block estado_fondo %}#e5f4ec{% endblock %}
+{% block estado_color %}#1d7a4c{% endblock %}
+{% block estado %}Preinscripción aceptada{% endblock %}
+{% block titulo %}¡Tu preinscripción fue aceptada!{% endblock %}
+{% block introduccion %}Secretaría revisó tus datos y tu documentación, y aceptó tu solicitud de preinscripción.{% endblock %}
+
+{% block contenido %}
+  {% if p.observaciones %}
+    {% include "emails/observaciones.html" with titulo="Observaciones de secretaría" %}
+  {% endif %}
+  <h2 style="margin: 0 0 10px; color: #13294b; font-size: 17px; line-height: 24px;">Próximos pasos</h2>
+  <p style="margin: 0;">Pronto te vamos a escribir con la información de inicio de clases.</p>
+{% endblock %}

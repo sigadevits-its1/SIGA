@@ -26,6 +26,8 @@ docker compose exec web python manage.py cargar_demo
 
 SIGA envía tres correos al aspirante: al recibir la solicitud, al aceptarla y al rechazarla (con el motivo).
 
+Los tres incluyen una versión HTML con el diseño compartido de `src/templates/emails/base.html` y una alternativa de texto plano. Cada estado tiene su propia plantilla; los estilos principales están en línea para compatibilidad con clientes de correo.
+
 Mientras `EMAIL_HOST_PASSWORD` esté vacío en `.env`, **no se envían**: se imprimen en la consola.
 
 ```bash

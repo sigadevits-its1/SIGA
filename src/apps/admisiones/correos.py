@@ -15,23 +15,24 @@ logger = logging.getLogger(__name__)
 
 
 def enviar_recepcion(preinscripcion):
-    _enviar(preinscripcion, f"Recibimos tu solicitud {preinscripcion.numero}", "emails/recepcion.txt")
+    _enviar(preinscripcion, f"Recibimos tu solicitud {preinscripcion.numero}", "recepcion")
 
 
 def enviar_aceptacion(preinscripcion):
-    _enviar(preinscripcion, "Tu preinscripción fue aceptada", "emails/aceptacion.txt")
+    _enviar(preinscripcion, "Tu preinscripción fue aceptada", "aceptacion")
 
 
 def enviar_rechazo(preinscripcion):
-    _enviar(preinscripcion, "Tu preinscripción no fue aceptada", "emails/rechazo.txt")
+    _enviar(preinscripcion, "Tu preinscripción no fue aceptada", "rechazo")
 
 
 def _enviar(preinscripcion, asunto, plantilla):
-    contexto = {"p": preinscripcion, "sitio": settings.SITE_URL}
+    contexto = {"p": preinscripcion, "sitio": settings.SITE_URL.rstrip("/")}
     try:
         send_mail(
             subject=f"SIGA · {asunto}",
-            message=render_to_string(plantilla, contexto),
+            message=render_to_string(f"emails/{plantilla}.txt", contexto),
+            html_message=render_to_string(f"emails/{plantilla}.html", contexto),
             from_email=None,  # usa DEFAULT_FROM_EMAIL
             recipient_list=[preinscripcion.persona.email],
         )
