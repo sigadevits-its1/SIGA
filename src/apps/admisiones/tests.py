@@ -1,9 +1,13 @@
+from io import BytesIO
 from types import SimpleNamespace
+from unittest.mock import Mock, patch
+from urllib.parse import parse_qs
 
 from django.core import mail
 from django.test import SimpleTestCase, override_settings
 
 from .correos import enviar_aceptacion, enviar_recepcion, enviar_rechazo
+from .moodle import MoodleIntegrationError, crear_usuario_moodle
 
 
 @override_settings(
@@ -64,6 +68,15 @@ class CorreosTests(SimpleTestCase):
         self.assertIn("información de inicio de clases", html)
         self.assertNotIn("Observaciones de secretaría", html)
 
+    def test_aceptacion_envia_credenciales_de_moodle_en_texto_y_html(self):
+        enviar_aceptacion(self.preinscripcion, "46318765", "ClaveTemporal123!")
+        correo = mail.outbox[0]
+        self.assertIn("Usuario: 46318765", correo.body)
+        self.assertIn("Clave temporal: ClaveTemporal123!", correo.body)
+        self.assertIn("Usuario:</strong> 46318765", correo.alternatives[0].content)
+        self.assertIn("Clave temporal:</strong> ClaveTemporal123!", correo.alternatives[0].content)
+        self.assertIn("Moodle te pedirá que cambies la clave", correo.body)
+
     def test_observaciones_conservan_saltos_y_escapan_html(self):
         self.preinscripcion.persona.nombre = "Sofía <img src=x>"
         self.preinscripcion.observaciones = "Traé el original.\n<script>alert('x')</script>"
@@ -88,3 +101,54 @@ class CorreosTests(SimpleTestCase):
         self.assertIn('href="https://siga.example.com/preinscripcion/"', html)
         self.assertIn("https://siga.example.com/preinscripcion/", correo.body)
         self.assertNotIn("siga.example.com//", html)
+
+
+@override_settings(
+    MOODLE_URL="http://localhost:8080",
+    MOODLE_API_TOKEN="token-de-prueba",
+)
+class MoodleTests(SimpleTestCase):
+    def test_crea_usuario_con_dni_y_solicita_cambio_de_clave(self):
+        persona = SimpleNamespace(
+            dni="46318765",
+            nombre="Sofía",
+            apellido="Martínez",
+            email="sofia@example.com",
+            moodle_user_id=None,
+            save=Mock(),
+        )
+        respuesta = BytesIO(b'[{"id":17,"username":"46318765"}]')
+        with patch("apps.admisiones.moodle.urlopen", return_value=respuesta) as urlopen:
+            clave = crear_usuario_moodle(persona)
+
+        self.assertEqual(len(clave), 16)
+        solicitud = urlopen.call_args.args[0]
+        parametros = parse_qs(solicitud.data.decode("utf-8"))
+        self.assertEqual(solicitud.full_url, "http://localhost:8080/webservice/rest/server.php")
+        self.assertEqual(parametros["wsfunction"], ["core_user_create_users"])
+        self.assertEqual(parametros["users[0][username]"], ["46318765"])
+        self.assertEqual(parametros["users[0][idnumber]"], ["46318765"])
+        self.assertEqual(parametros["users[0][password]"], [clave])
+        self.assertEqual(parametros["users[0][preferences][0][type]"], ["auth_forcepasswordchange"])
+        self.assertEqual(parametros["users[0][preferences][0][value]"], ["1"])
+        self.assertEqual(persona.moodle_user_id, 17)
+        persona.save.assert_called_once_with(update_fields=["moodle_user_id", "actualizado"])
+
+    def test_no_duplica_una_cuenta_ya_vinculada(self):
+        persona = SimpleNamespace(moodle_user_id=17)
+        with patch("apps.admisiones.moodle.urlopen") as urlopen:
+            clave = crear_usuario_moodle(persona)
+        self.assertIsNone(clave)
+        urlopen.assert_not_called()
+
+    @override_settings(MOODLE_API_TOKEN="")
+    def test_exige_token_de_moodle(self):
+        persona = SimpleNamespace(
+            dni="46318765",
+            nombre="Sofía",
+            apellido="Martínez",
+            email="sofia@example.com",
+            moodle_user_id=None,
+        )
+        with self.assertRaisesMessage(MoodleIntegrationError, "Falta configurar MOODLE_API_TOKEN."):
+            crear_usuario_moodle(persona)

@@ -1,33 +1,103 @@
+name: siga
+
 services:
-  db:
+  siga_db:
     image: postgres:16
+    restart: unless-stopped
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-siga}
+      POSTGRES_USER: ${POSTGRES_USER:-siga}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Configurar POSTGRES_PASSWORD en .env}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - siga_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 20
+      start_period: 10s
 
   web:
     build: .
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    restart: unless-stopped
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
     env_file: .env
     environment:
-      DB_HOST: db
+      DB_HOST: siga_db
     volumes:
-      - ./src:/app            # código fuente, editable desde el host
-      - media:/data/media     # documentos subidos (privados, sin URL pública)
+      - ./src:/app
+      - media:/data/media
     ports:
-      - "8000:8000"
+      - "${SIGA_PORT:-8000}:8000"
     depends_on:
-      db:
+      siga_db:
         condition: service_healthy
 
+  moodle_db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${MOODLE_DB_NAME:-moodle}
+      POSTGRES_USER: ${MOODLE_DB_USER:-moodleuser}
+      POSTGRES_PASSWORD: ${MOODLE_DB_PASSWORD:?Configurar MOODLE_DB_PASSWORD en .env}
+    volumes:
+      - moodle_pgdata:/var/lib/postgresql/data
+    networks:
+      default:
+        # Compatibilidad con config.php de la instalacion anterior de Moodle.
+        aliases: [db]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  moodle:
+    image: erseco/alpine-moodle:5.3
+    restart: unless-stopped
+    environment:
+      SITE_URL: ${MOODLE_SITE_URL:-http://localhost:8080}
+      DB_TYPE: pgsql
+      DB_HOST: moodle_db
+      DB_PORT: "5432"
+      DB_NAME: ${MOODLE_DB_NAME:-moodle}
+      DB_USER: ${MOODLE_DB_USER:-moodleuser}
+      DB_PASS: ${MOODLE_DB_PASSWORD:?Configurar MOODLE_DB_PASSWORD en .env}
+      DB_PREFIX: mdl_
+      MOODLE_SITENAME: ${MOODLE_SITENAME:-Moodle}
+      MOODLE_USERNAME: ${MOODLE_ADMIN_USER:-admin}
+      MOODLE_PASSWORD: ${MOODLE_ADMIN_PASSWORD:?Configurar MOODLE_ADMIN_PASSWORD en .env}
+      MOODLE_EMAIL: ${MOODLE_ADMIN_EMAIL:-admin@example.com}
+      MOODLE_LANGUAGE: es
+    ports:
+      - "${MOODLE_PORT:-8080}:8080"
+    volumes:
+      - moodledata:/var/www/moodledata
+      - moodlehtml:/var/www/html
+    depends_on:
+      moodle_db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--silent", "--fail", "http://127.0.0.1:8080/fpm-ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 5m
+
 volumes:
-  pgdata:
+  siga_pgdata:
+    name: ${SIGA_DB_VOLUME:-siga_pgdata}
+    external: ${EXTERNAL_DATA_VOLUMES:-false}
   media:
+    name: ${SIGA_MEDIA_VOLUME:-siga_media}
+    external: ${EXTERNAL_DATA_VOLUMES:-false}
+  moodle_pgdata:
+    name: ${MOODLE_DB_VOLUME:-siga_moodle_pgdata}
+    external: ${EXTERNAL_DATA_VOLUMES:-false}
+  moodledata:
+    name: ${MOODLE_DATA_VOLUME:-siga_moodledata}
+    external: ${EXTERNAL_DATA_VOLUMES:-false}
+  moodlehtml:
+    name: ${MOODLE_HTML_VOLUME:-siga_moodlehtml}
+    external: ${EXTERNAL_DATA_VOLUMES:-false}

@@ -8,6 +8,14 @@
 {% block introduccion %}Secretaría revisó tus datos y tu documentación, y aceptó tu solicitud de preinscripción.{% endblock %}
 
 {% block contenido %}
+  {% if usuario_moodle and clave_moodle %}
+    <h2 style="margin: 0 0 10px; color: #13294b; font-size: 17px; line-height: 24px;">Tu cuenta de Moodle</h2>
+    <p style="margin: 0 0 8px;">Ya creamos tu cuenta. Al ingresar por primera vez, Moodle te pedirá que cambies la clave.</p>
+    <p style="margin: 0 0 20px;"><strong>Usuario:</strong> {{ usuario_moodle }}<br><strong>Clave temporal:</strong> {{ clave_moodle }}</p>
+  {% endif %}
+  {% if cuenta_moodle_existente %}
+    <p style="margin: 0 0 20px;">Ya tenés una cuenta de Moodle. Iniciá sesión con tus datos habituales.</p>
+  {% endif %}
   {% if p.observaciones %}
     {% include "emails/observaciones.html" with titulo="Observaciones de secretaría" %}
   {% endif %}

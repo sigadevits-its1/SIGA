@@ -15,6 +15,9 @@ ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").sp
 
 # Dirección pública del sitio, para armar enlaces en los correos.
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
+MOODLE_URL = os.environ.get("MOODLE_URL", "http://moodle:8080").rstrip("/")
+MOODLE_HOST_HEADER = os.environ.get("MOODLE_HOST_HEADER", "localhost:8080")
+MOODLE_API_TOKEN = os.environ.get("MOODLE_API_TOKEN", "")
 
 
 # ---------------------------------------------------------------------------

@@ -18,16 +18,24 @@ def enviar_recepcion(preinscripcion):
     _enviar(preinscripcion, f"Recibimos tu solicitud {preinscripcion.numero}", "recepcion")
 
 
-def enviar_aceptacion(preinscripcion):
-    _enviar(preinscripcion, "Tu preinscripción fue aceptada", "aceptacion")
+def enviar_aceptacion(preinscripcion, usuario_moodle=None, clave_moodle=None, cuenta_moodle_existente=False):
+    _enviar(
+        preinscripcion,
+        "Tu preinscripción fue aceptada",
+        "aceptacion",
+        usuario_moodle=usuario_moodle,
+        clave_moodle=clave_moodle,
+        cuenta_moodle_existente=cuenta_moodle_existente,
+    )
 
 
 def enviar_rechazo(preinscripcion):
     _enviar(preinscripcion, "Tu preinscripción no fue aceptada", "rechazo")
 
 
-def _enviar(preinscripcion, asunto, plantilla):
+def _enviar(preinscripcion, asunto, plantilla, **datos_adicionales):
     contexto = {"p": preinscripcion, "sitio": settings.SITE_URL.rstrip("/")}
+    contexto.update(datos_adicionales)
     try:
         send_mail(
             subject=f"SIGA · {asunto}",

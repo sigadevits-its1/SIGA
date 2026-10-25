@@ -4,6 +4,15 @@
 
   Carrera: {{ p.periodo_plan.plan.carrera.nombre }}
   Período: {{ p.periodo_plan.periodo.nombre }}
+{% if usuario_moodle and clave_moodle %}
+Tu cuenta de Moodle ya está creada:
+  Usuario: {{ usuario_moodle }}
+  Clave temporal: {{ clave_moodle }}
+Al ingresar, Moodle te pedirá que cambies la clave.
+{% endif %}
+{% if cuenta_moodle_existente %}
+Ya tenés una cuenta de Moodle. Iniciá sesión con tus datos habituales.
+{% endif %}
 {% if p.observaciones %}
 Observaciones de secretaría:
 {{ p.observaciones }}

@@ -1,6 +1,7 @@
 import shutil
 import tempfile
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.core import mail
@@ -10,6 +11,7 @@ from django.urls import reverse
 
 from django.utils import timezone
 
+from apps.admisiones.moodle import MoodleIntegrationError
 from apps.admisiones.models import DocumentoPreinscripcion, Preinscripcion
 from apps.core.models import Carrera, PeriodoInscripcion, PeriodoPlan, Persona, PlanCarrera
 
@@ -67,12 +69,32 @@ class PanelAdministrativoTests(TestCase):
 
     def test_aceptar(self):
         self.client.force_login(self.secretaria)
-        self.client.post(reverse("administracion:aceptar", args=[self.p.pk]))
+        with patch("apps.administracion.views.crear_usuario_moodle", return_value="ClaveTemporal123!") as crear:
+            self.client.post(
+                reverse("administracion:aceptar", args=[self.p.pk]),
+                {"observaciones": "Documentación verificada"},
+            )
         self.p.refresh_from_db()
         self.assertEqual(self.p.estado, Preinscripcion.Estado.ACEPTADO)
         self.assertEqual(self.p.revisor, self.secretaria)
         self.assertIsNotNone(self.p.fecha_revision)
         self.assertEqual(len(mail.outbox), 1)
+        crear.assert_called_once_with(self.p.persona)
+        self.assertIn("Usuario: 46318765", mail.outbox[0].body)
+        self.assertIn("Clave temporal: ClaveTemporal123!", mail.outbox[0].body)
+        self.assertIn("cambies la clave", mail.outbox[0].body)
+
+    def test_falla_moodle_y_no_acepta_la_solicitud(self):
+        self.client.force_login(self.secretaria)
+        with patch(
+            "apps.administracion.views.crear_usuario_moodle",
+            side_effect=MoodleIntegrationError("Falta configurar MOODLE_API_TOKEN."),
+        ):
+            respuesta = self.client.post(reverse("administracion:aceptar", args=[self.p.pk]))
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.estado, Preinscripcion.Estado.PENDIENTE)
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertRedirects(respuesta, reverse("administracion:ficha", args=[self.p.pk]))
 
     def test_rechazar_exige_motivo_y_envia_correo(self):
         self.client.force_login(self.secretaria)
@@ -89,7 +111,8 @@ class PanelAdministrativoTests(TestCase):
 
     def test_no_se_puede_resolver_dos_veces(self):
         self.client.force_login(self.secretaria)
-        self.client.post(reverse("administracion:aceptar", args=[self.p.pk]))
+        with patch("apps.administracion.views.crear_usuario_moodle", return_value="ClaveTemporal123!"):
+            self.client.post(reverse("administracion:aceptar", args=[self.p.pk]))
         self.client.post(reverse("administracion:rechazar", args=[self.p.pk]), {"motivo": "x"})
         self.p.refresh_from_db()
         self.assertEqual(self.p.estado, Preinscripcion.Estado.ACEPTADO)

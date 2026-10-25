@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from apps.admisiones.correos import enviar_aceptacion, enviar_rechazo
 from apps.admisiones.cupos import ofertas_con_cupo
 from apps.admisiones.models import DocumentoPreinscripcion, Preinscripcion
+from apps.admisiones.moodle import MoodleIntegrationError, crear_usuario_moodle
 from apps.core.models import Carrera, PeriodoInscripcion
 
 from .permisos import rol_administrativo
@@ -106,9 +107,23 @@ def aceptar(request, pk):
     if not p.esta_pendiente:
         messages.error(request, "La solicitud ya estaba resuelta.")
         return redirect("administracion:ficha", pk=pk)
+    cuenta_moodle_existente = bool(p.persona.moodle_user_id)
+    try:
+        clave_temporal = crear_usuario_moodle(p.persona)
+    except MoodleIntegrationError as error:
+        messages.error(request, f"No se pudo aceptar la solicitud: {error}")
+        return redirect("administracion:ficha", pk=pk)
     p.aceptar(request.user, request.POST.get("observaciones", ""))
-    enviar_aceptacion(p)
-    messages.success(request, f"Aceptaste a {p.persona.nombre_completo}. Le avisamos por correo.")
+    enviar_aceptacion(
+        p,
+        p.persona.dni,
+        clave_temporal,
+        cuenta_moodle_existente=cuenta_moodle_existente,
+    )
+    messages.success(
+        request,
+        f"Aceptaste a {p.persona.nombre_completo}. Se creó su cuenta de Moodle y le enviamos los datos por correo.",
+    )
     return redirect("administracion:ficha", pk=pk)
 
 

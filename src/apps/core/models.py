@@ -20,6 +20,7 @@ class Persona(models.Model):
     fecha_nacimiento = models.DateField("fecha de nacimiento")
     email = models.EmailField("correo electrónico", max_length=150)
     telefono = models.CharField("teléfono", max_length=40)
+    moodle_user_id = models.PositiveBigIntegerField("ID de usuario en Moodle", null=True, blank=True, unique=True)
     creado = models.DateTimeField(auto_now_add=True)
     actualizado = models.DateTimeField(auto_now=True)
 
