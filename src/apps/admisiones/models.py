@@ -23,6 +23,29 @@ class Preinscripcion(models.Model):
         ACEPTADO = "aceptado", "Aceptado"
         RECHAZADO = "rechazado", "Rechazado"
 
+    class MoodleEstado(models.TextChoices):
+        """Estado del alta de la cuenta en Moodle para esta solicitud.
+        Permite auditar qué pasó y reintentar sin consultar el estado de la
+        persona. El estado vive acá, no en Persona, porque una persona puede
+        tener varias solicitudes en distintos períodos.
+        """
+        PENDIENTE = "pendiente", "Pendiente"
+        CREANDO = "creando", "Creando"
+        CREADO = "creado", "Creado"
+        ERROR = "error", "Error"
+    # Copia de los datos que declaró el aspirante al enviar el formulario.
+    # No reemplaza a Persona: si la persona ya existía con otros datos,
+    # se conservan los originales y queda registro de lo declarado.
+    datos_declarados = models.JSONField("datos declarados por el aspirante", default=dict, blank=True)
+
+    moodle_estado = models.CharField(
+        max_length=10,
+        choices=MoodleEstado.choices,
+        default=MoodleEstado.PENDIENTE,
+    )
+    moodle_error = models.TextField(blank=True)  # último error devuelto por Moodle
+    moodle_actualizado = models.DateTimeField(null=True, blank=True) # última actualización del estado
+
     persona = models.ForeignKey(Persona, on_delete=models.PROTECT, related_name="preinscripciones")
     periodo_plan = models.ForeignKey(
         PeriodoPlan, on_delete=models.PROTECT, related_name="preinscripciones", verbose_name="carrera y plan"
@@ -43,6 +66,7 @@ class Preinscripcion(models.Model):
         constraints = [
             # Una persona no puede tener dos solicitudes vivas para la misma carrera.
             # Las rechazadas no cuentan: así puede volver a enviar el formulario.
+            # La misma persona podría tener una solicitud activa en dos carreras del mismo período.
             models.UniqueConstraint(
                 fields=["persona", "periodo_plan"],
                 condition=~models.Q(estado="rechazado"),

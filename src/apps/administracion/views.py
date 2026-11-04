@@ -5,10 +5,10 @@ from django.http import FileResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.admisiones.correos import enviar_aceptacion, enviar_rechazo
 from apps.admisiones.cupos import ofertas_con_cupo
 from apps.admisiones.models import DocumentoPreinscripcion, Preinscripcion
-from apps.admisiones.moodle import MoodleIntegrationError, crear_usuario_moodle
+from apps.admisiones.moodle import MoodleIntegrationError
+from apps.admisiones.servicios import GestorSolicitudes, MotivoRequerido, SolicitudYaResuelta
 from apps.core.models import Carrera, PeriodoInscripcion
 
 from .permisos import rol_administrativo
@@ -103,45 +103,62 @@ def ficha(request, pk):
 @require_POST
 @rol_administrativo
 def aceptar(request, pk):
-    p = get_object_or_404(Preinscripcion, pk=pk)
-    if not p.esta_pendiente:
-        messages.error(request, "La solicitud ya estaba resuelta.")
-        return redirect("administracion:ficha", pk=pk)
-    cuenta_moodle_existente = bool(p.persona.moodle_user_id)
+    """Acepta la solicitud delegando en el gestor de admisiones."""
+    p = get_object_or_404(Preinscripcion.objects.select_related("persona"), pk=pk)
     try:
-        clave_temporal = crear_usuario_moodle(p.persona)
+        resultado = GestorSolicitudes().aceptar(
+            p,
+            request.user,
+            request.POST.get("observaciones", ""),
+        )
     except MoodleIntegrationError as error:
         messages.error(request, f"No se pudo aceptar la solicitud: {error}")
-        return redirect("administracion:ficha", pk=pk)
-    p.aceptar(request.user, request.POST.get("observaciones", ""))
-    enviar_aceptacion(
-        p,
-        p.persona.dni,
-        clave_temporal,
-        cuenta_moodle_existente=cuenta_moodle_existente,
-    )
-    messages.success(
-        request,
-        f"Aceptaste a {p.persona.nombre_completo}. Se creó su cuenta de Moodle y le enviamos los datos por correo.",
-    )
+    except SolicitudYaResuelta as error:
+        messages.error(request, str(error))
+    else:
+        nombre = resultado.solicitud.persona.nombre_completo
+        if not resultado.correo_enviado:
+            messages.warning(
+                request,
+                f"Aceptaste a {nombre}, pero el correo no se pudo enviar.",
+            )
+        elif resultado.cuenta_existente:
+            messages.success(
+                request,
+                f"Aceptaste a {nombre}. Se reutilizó su cuenta de Moodle y le enviamos el aviso.",
+            )
+        else:
+            messages.success(
+                request,
+                f"Aceptaste a {nombre}. Se creó su cuenta de Moodle y le enviamos los datos.",
+            )
+
     return redirect("administracion:ficha", pk=pk)
 
 
 @require_POST
 @rol_administrativo
 def rechazar(request, pk):
+    """Rechaza la solicitud delegando en el gestor de admisiones."""
     p = get_object_or_404(Preinscripcion, pk=pk)
-    motivo = request.POST.get("motivo", "").strip()
-    if not p.esta_pendiente:
-        messages.error(request, "La solicitud ya estaba resuelta.")
-    elif not motivo:
-        messages.error(request, "Para rechazar hay que indicar el motivo.")
+    try:
+        resultado = GestorSolicitudes().rechazar(
+            p,
+            request.user,
+            request.POST.get("motivo", ""),
+        )
+    except MotivoRequerido as error:
+        messages.error(request, str(error))
+    except SolicitudYaResuelta as error:
+        messages.error(request, str(error))
     else:
-        p.rechazar(request.user, motivo)
-        enviar_rechazo(p)
-        messages.success(request, f"Rechazaste la solicitud de {p.persona.nombre_completo}. Le avisamos por correo.")
-    return redirect("administracion:ficha", pk=pk)
+        nombre = resultado.solicitud.persona.nombre_completo
+        if resultado.correo_enviado:
+            messages.success(request, f"Rechazaste la solicitud de {nombre}.")
+        else:
+            messages.warning(request, "La solicitud se rechazó, pero el correo no se pudo enviar.")
 
+    return redirect("administracion:ficha", pk=pk)
 
 @rol_administrativo
 def ver_documento(request, pk):
