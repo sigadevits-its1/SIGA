@@ -7,9 +7,17 @@ de Django (decisión provisional del primer entregable, sección 3.2).
 from django.core.validators import RegexValidator
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 validar_dni = RegexValidator(r"^\d{7,8}$", "El DNI debe tener 7 u 8 números, sin puntos.")
 
+def validar_fecha_nacimiento(fecha):
+    """Evita fechas futuras y años improbables (más de 100 años atrás)."""
+    hoy = timezone.localdate()
+    if fecha > hoy:
+        raise ValidationError("La fecha de nacimiento no puede ser futura.")
+    if fecha.year < hoy.year - 100:
+        raise ValidationError("Revisá la fecha de nacimiento.")
 
 class Persona(models.Model):
     """Una persona física. Hoy son aspirantes; más adelante, estudiantes y docentes."""
@@ -17,7 +25,7 @@ class Persona(models.Model):
     nombre = models.CharField(max_length=100)
     apellido = models.CharField(max_length=100)
     dni = models.CharField("DNI", max_length=8, unique=True, validators=[validar_dni])
-    fecha_nacimiento = models.DateField("fecha de nacimiento")
+    fecha_nacimiento = models.DateField("fecha de nacimiento",validators=[validar_fecha_nacimiento],)
     email = models.EmailField("correo electrónico", max_length=150)
     telefono = models.CharField("teléfono", max_length=40)
     moodle_user_id = models.PositiveBigIntegerField("ID de usuario en Moodle", null=True, blank=True, unique=True)

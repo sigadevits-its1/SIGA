@@ -64,7 +64,7 @@ Requisitos: Docker Desktop iniciado, con contenedores Linux y Docker Compose. Lo
 
 1. Abrir http://localhost:8080 e ingresar con `MOODLE_ADMIN_USER` y `MOODLE_ADMIN_PASSWORD` del `.env` utilizado en la **primera instalación**. Completar los datos iniciales que solicite Moodle.
 2. Ir a **Administración del sitio → Características avanzadas**, activar **Habilitar servicios web** y guardar.
-3. Ir a **Administración del sitio → Servidor → Servicios web → Gestionar protocolos** y habilitar **REST**. En algunas versiones el menú aparece en **Plugins → Servicios web**; se puede buscar “Gestionar protocolos” en el buscador de administración.
+3. Ir a **Administración del sitio → Servidor → Servicios web → Gestionar protocolos** y habilitar **REST**. En algunas versiones el menú aparece en **Plugins → Servicios web**; se puede buscar "Gestionar protocolos" en el buscador de administración.
 
 Las variables `MOODLE_ADMIN_*` inicializan una instalación vacía. Cambiarlas no restablece la contraseña de un administrador ya creado.
 
@@ -72,7 +72,7 @@ Las variables `MOODLE_ADMIN_*` inicializan una instalación vacía. Cambiarlas n
 
 1. Ir a **Administración del sitio → Usuarios → Cuentas → Agregar un usuario**.
 2. Crear, por ejemplo, el usuario `siga_api`, con autenticación **Cuentas manuales**, contraseña propia, nombre, apellido y correo válidos.
-3. Dejar la cuenta activa, confirmada y sin suspensión. No activar “Forzar cambio de contraseña” para esta cuenta técnica. Guardar.
+3. Dejar la cuenta activa, confirmada y sin suspensión. No activar "Forzar cambio de contraseña" para esta cuenta técnica. Guardar.
 
 Esta cuenta identifica a SIGA ante la API. Es distinta del administrador y de los aspirantes que se van a crear.
 
@@ -81,26 +81,41 @@ Esta cuenta identifica a SIGA ante la API. Es distinta del administrador y de lo
 1. Ir a **Administración del sitio → Usuarios → Permisos → Definir roles → Agregar un nuevo rol**.
 2. Continuar sin un arquetipo de rol predefinido. Usar nombre **SIGA API** y nombre corto `siga_api`.
 3. En **Tipos de contexto en que puede asignarse este rol**, seleccionar **Sistema**.
-4. Buscar por el identificador del permiso y seleccionar **Permitir** para estos dos:
+4. Buscar los permisos por su **nombre en el panel** (Moodle muestra la traducción, no el identificador) y seleccionar **Permitir** en cada uno:
 
-   | Permiso | Uso |
-   |---|---|
-   | `webservice/rest:use` | Permite que la cuenta utilice REST |
-   | `moodle/user:create` | Permite crear usuarios en el sistema |
+   | Permiso en el panel | Identificador | Uso |
+   |---|---|---|
+   | Usar protocolo REST | `webservice/rest:use` | Permite que la cuenta utilice REST |
+   | Crear usuarios | `moodle/user:create` | Crea la cuenta del aspirante |
+   | Ver perfiles de usuario | `moodle/user:viewdetails` | Permite encontrar cuentas existentes por DNI |
+   | Actualizar perfiles de usuario | `moodle/user:update` | Permite restablecer la clave |
+
+   Si el filtro no encuentra `moodle/user:update`, buscar **"Actualizar perfiles"**: el nombre visible es *Actualizar perfiles de usuario*. Lo mismo para `moodle/user:viewdetails`, que aparece como *Ver perfiles de usuario*.
+
+   `moodle/user:viewdetails` está definido a nivel de curso, pero al asignar el rol en **Sistema** se aplica a todos los usuarios. Sin ese permiso, la búsqueda por DNI devuelve vacío para cuentas que no comparten curso con la cuenta técnica.
 
 5. Guardar el rol.
 6. Ir a **Administración del sitio → Usuarios → Permisos → Asignar roles del sistema**. Abrir **SIGA API**, seleccionar `siga_api` y agregarlo.
 
-Crear el rol no alcanza: hay que asignarlo al usuario del token en **Sistema**. Estos permisos pertenecen al rol específico de la integración, no al rol general “Usuario autenticado”.
+Crear el rol no alcanza: hay que asignarlo al usuario del token en **Sistema**. Estos permisos pertenecen al rol específico de la integración, no al rol general "Usuario autenticado".
 
 ### 4. Crear el servicio externo y autorizar al usuario
 
 1. Ir a **Administración del sitio → Servidor → Servicios web → Servicios externos**.
 2. Agregar un servicio personalizado llamado **siga**. Marcar **Habilitado** y **Sólo usuarios autorizados**. El campo de capacidad adicional requerida puede quedar vacío.
-3. Abrir **Funciones → Agregar funciones** y agregar **`core_user_create_users`**.
-4. Para utilizar la comprobación de sólo lectura de abajo, agregar también **`core_webservice_get_site_info`**. Esta segunda función sirve para diagnóstico y no es necesaria para crear cuentas.
-5. Volver al servicio, abrir **Usuarios autorizados** y agregar `siga_api`. Comprobar que Moodle no liste permisos faltantes para ese usuario.
-6. Para las pruebas locales, dejar vacía la restricción de IP. Si se configura una restricción o vencimiento, debe permitir la IP de origen que recibe Moodle desde Docker y mantenerse vigente.
+3. Abrir **Funciones → Agregar funciones** y agregar las que usa SIGA:
+
+   | Función | Uso |
+   |---|---|
+   | `core_user_get_users_by_field` | Buscar la cuenta por DNI antes de crearla |
+   | `core_user_create_users` | Crear la cuenta del aspirante |
+   | `core_user_update_users` | Restablecer la clave de una cuenta existente |
+   | `core_webservice_get_site_info` | Diagnóstico del token y de las funciones habilitadas |
+
+   `core_user_update_users` y `core_webservice_get_site_info` no son necesarias para aceptar una solicitud: la primera se usa sólo al restablecer una clave y la segunda sólo para diagnóstico. Sin `core_user_get_users_by_field` y `core_user_create_users` el alta falla con **"Excepción al control de acceso"**.
+
+4. Volver al servicio, abrir **Usuarios autorizados** y agregar `siga_api`. Comprobar que Moodle no liste permisos faltantes para ese usuario.
+5. Para las pruebas locales, dejar vacía la restricción de IP. Si se configura una restricción o vencimiento, debe permitir la IP de origen que recibe Moodle desde Docker y mantenerse vigente.
 
 El alta actual no utiliza `enrol_manual_enrol_users`: crea la cuenta, pero **no matricula automáticamente en cursos**. Esa función y los permisos de matriculación no son necesarios para este flujo.
 
@@ -135,6 +150,12 @@ import os
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+REQUERIDAS = {
+    "core_user_get_users_by_field",
+    "core_user_create_users",
+    "core_user_update_users",
+}
+
 datos = urlencode({
     "wstoken": os.environ["MOODLE_API_TOKEN"],
     "wsfunction": "core_webservice_get_site_info",
@@ -147,16 +168,25 @@ solicitud = Request(
 )
 with urlopen(solicitud, timeout=10) as respuesta:
     resultado = json.load(respuesta)
+
 if resultado.get("exception"):
     print(resultado.get("errorcode"), resultado.get("message"))
 else:
     funciones = {f["name"] for f in resultado.get("functions", [])}
+    faltantes = sorted(REQUERIDAS - funciones)
     print("Conexion y token: OK")
-    print("Funcion de alta disponible:", "core_user_create_users" in funciones)
+    print("Faltan funciones:", ", ".join(faltantes) if faltantes else "ninguna")
 '@ | docker compose exec -T web python -B -
 ```
 
-La salida esperada es `Conexion y token: OK` y `Funcion de alta disponible: True`. No se imprime el token ni se crea una cuenta. Si la función de consulta no se agregó al servicio, esta comprobación puede devolver un error de acceso aunque el alta esté habilitada.
+La salida esperada es:
+
+```text
+Conexion y token: OK
+Faltan funciones: ninguna
+```
+
+No se imprime el token ni se crea una cuenta. Si `core_webservice_get_site_info` falla, el problema es el token o la conexión; si funciona pero aparecen funciones faltantes, el problema es la lista de funciones del servicio.
 
 ### 7. Comprobar el circuito de aceptación
 
@@ -165,7 +195,7 @@ La salida esperada es `Conexion y token: OK` y `Funcion de alta disponible: True
 3. Comprobar en **Moodle → Usuarios → Cuentas → Examinar lista de usuarios** que se creó la cuenta con el DNI como nombre de usuario.
 4. Revisar el correo de aceptación: incluye usuario y clave temporal. Al ingresar por primera vez, Moodle debe solicitar cambiar la clave. Si el correo de SIGA está en modo consola, revisar `docker compose logs web`.
 
-SIGA guarda el ID de Moodle en la persona. Si esa misma persona vuelve a ser aceptada por otra postulación y ya tiene un ID vinculado, reutiliza la cuenta y no genera otra contraseña. Si Moodle rechaza el alta o no responde, la solicitud permanece pendiente. Una cuenta creada previamente de forma manual en Moodle, pero sin ID vinculado en SIGA, no se vincula automáticamente por DNI o correo.
+SIGA guarda el ID de Moodle en la persona. Antes de crear la cuenta, busca por DNI (nombre de usuario): si ya existe, la vincula y no genera otra contraseña; si no existe, la crea. Para que esa búsqueda funcione, el servicio debe incluir `core_user_get_users_by_field` y el rol debe tener `moodle/user:viewdetails`. Si Moodle rechaza el alta o no responde, la solicitud permanece pendiente.
 
 ## Cómo se llama a la API
 
@@ -238,16 +268,62 @@ Sin `EMAIL_HOST_PASSWORD`, se usa la consola. Para enviar por Gmail:
 
 Esta configuración corresponde a los correos enviados por SIGA. El correo propio de Moodle se configura por separado en Moodle si se necesita, por ejemplo, para recuperar contraseñas. `.env` está excluido de Git y no debe compartirse con tokens ni claves.
 
+## Reconciliar cuentas de Moodle
+
+Si una solicitud quedó aceptada pero la persona no tiene `moodle_user_id` (por ejemplo, por una interrupción durante el alta), el comando busca la cuenta por DNI y la vincula:
+
+```powershell
+docker compose exec web python manage.py reconciliar_moodle --dry-run
+docker compose exec web python manage.py reconciliar_moodle
+```
+
+`--dry-run` sólo informa. Cada solicitud guarda su estado de Moodle: `pendiente`, `creando`, `creado` o `error`, visible en el admin de Django junto con el último error.
+
+## Diagnóstico: "Excepción al control de acceso"
+
+Cuando al aceptar una solicitud aparece:
+
+```text
+No se pudo aceptar la solicitud: Excepción al control de acceso
+```
+
+Moodle devolvió `accessexception`. Casi siempre significa que la función solicitada **no está habilitada en el servicio externo**, no que el token esté vencido. Pasos:
+
+1. Ejecutar la comprobación de la sección 6. Si `core_webservice_get_site_info` responde, el token y la conexión están bien.
+2. Revisar **Servicios externos → siga → Funciones** y confirmar `core_user_get_users_by_field`, `core_user_create_users` y `core_user_update_users`.
+3. Revisar el rol **SIGA API** y confirmar `webservice/rest:use`, `moodle/user:create`, `moodle/user:viewdetails` y `moodle/user:update`.
+4. Confirmar que el rol está asignado a la cuenta técnica en **Sistema**.
+5. Si se cambiaron permisos: **Administración del sitio → Desarrollo → Purgar cachés**.
+6. Probar sólo la búsqueda, sin crear nada:
+
+   ```powershell
+   docker compose exec -T web python manage.py shell -c "from apps.admisiones.moodle import buscar_usuario_moodle; print(buscar_usuario_moodle('00000000'))"
+   ```
+
+   | Resultado | Significado |
+   |---|---|
+   | `Excepción al control de acceso` | Falta la función en el servicio |
+   | `None` | La llamada funciona y ese DNI no existe |
+   | Un número | Encontró una cuenta existente |
+
+| Mensaje de Moodle | Causa probable |
+|---|---|
+| `Excepción al control de acceso` (`accessexception`) | La función no está agregada al servicio, o falta el permiso asociado |
+| `invalidtoken` | Token vencido, revocado o de otro servicio |
+| `username already exists` | La búsqueda no ve cuentas existentes: falta `moodle/user:viewdetails` |
+| `nopermissions` | Falta `moodle/user:create` o `moodle/user:update` en el rol |
+
 ## Problemas frecuentes
 
 | Síntoma | Qué revisar |
 |---|---|
 | `Connection refused` | Moodle todavía está iniciando o `MOODLE_URL` apunta a `localhost` dentro de Django. Usar `http://moodle:8080`. |
-| `accessexception` | REST y servicios web habilitados; servicio activo; usuario autorizado, activo y con el rol asignado en Sistema; permiso `webservice/rest:use`; función solicitada agregada al servicio; restricciones de IP y vencimiento. |
+| `accessexception` | REST y servicios web habilitados; servicio activo; usuario autorizado, activo y con el rol asignado en Sistema; permiso `webservice/rest:use`; **función solicitada agregada al servicio**; restricciones de IP y vencimiento. |
+| `No se pudo aceptar la solicitud: Excepción al control de acceso` | Ver **Diagnóstico: "Excepción al control de acceso"**. |
 | Falta `moodle/user:create` | Permitir ese permiso en el rol de la cuenta técnica y comprobar su asignación en Sistema. |
 | `invalidtoken` | Token copiado sin espacios, vigente y perteneciente al servicio correcto. Recrear `web` después de editar `.env`. |
 | Respuesta HTML, redirección o dirección incorrecta | `MOODLE_HOST_HEADER` debe coincidir con el host de `wwwroot`; revisar `MOODLE_SITE_URL` y el `config.php` persistido. |
-| Usuario o correo ya existente | La cuenta no está vinculada a la persona de SIGA. Resolver esa vinculación antes de reintentar; el flujo actual no busca ni adopta cuentas existentes por correo. |
+| Usuario o correo ya existente | La búsqueda por DNI no encuentra la cuenta. Revisar `core_user_get_users_by_field` en el servicio y `moodle/user:viewdetails` en el rol. SIGA busca por DNI; una cuenta con otro nombre de usuario o creada con otro correo no se vincula. |
 | PostgreSQL rechaza la contraseña | Las variables deben coincidir con las usadas al inicializar el volumen. Editar `.env` no cambia la contraseña de una base ya creada. |
 | `external volume ... not found` | Revisar los nombres de los volúmenes anteriores. Para una instalación nueva usar los nombres de la plantilla y `EXTERNAL_DATA_VOLUMES=false`. |
 | Puerto 8000 u 8080 ocupado | Detener los contenedores anteriores. Si se cambia el puerto de Moodle, revisar también la configuración del servidor y `wwwroot` como se explica arriba. |
@@ -262,6 +338,8 @@ docker compose exec web python manage.py check
 docker compose exec web python manage.py test
 docker compose exec web python manage.py showmigrations core
 docker compose exec web python manage.py makemigrations --check --dry-run
+docker compose exec web python manage.py reconciliar_moodle --dry-run
+docker compose exec web python manage.py reconciliar_moodle
 docker compose stop
 docker compose down
 ```
@@ -292,9 +370,9 @@ Las dependencias van en un solo sentido: `core` ← `admisiones` ← `preinscrip
 | `carreras`, `planes_carreras` | Oferta académica |
 | `periodos_inscripcion` | Ventana de fechas |
 | `periodos_inscripcion_planes` | Planes ofrecidos y cupos |
-| `preinscripciones` | Estado, responsable y fecha de resolución |
+| `preinscripciones` | Estado, estado de Moodle, datos declarados, responsable y fecha de resolución |
 | `documentos_preinscripciones` | DNI, título o constancia, y analítico opcional |
 
-Una persona tiene una sola solicitud activa por período; las rechazadas no cuentan. Los cupos incluyen solicitudes pendientes y aceptadas. Los documentos se guardan con nombres aleatorios y se sirven únicamente desde una vista con control de acceso.
+Una persona tiene una sola solicitud activa por plan y período; las rechazadas no cuentan. Los cupos incluyen solicitudes pendientes y aceptadas. Los documentos se guardan con nombres aleatorios y se sirven únicamente desde una vista con control de acceso.
 
 Referencias: [servicios web de Moodle](https://docs.moodle.org/503/en/Using_web_services), [roles personalizados](https://docs.moodle.org/503/en/Creating_custom_roles), [protocolo REST y parámetros](https://supportus.moodle.com/support/solutions/articles/80001016973-using-the-web-services-application-programming-interface-api-in-moodle), [imagen alpine-moodle](https://github.com/erseco/alpine-moodle).

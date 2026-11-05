@@ -3,26 +3,44 @@ from django.utils import timezone
 
 from apps.admisiones.correos import enviar_recepcion
 from apps.admisiones.cupos import ofertas_con_cupo
-from apps.admisiones.models import Preinscripcion
+from apps.admisiones.models import DocumentoPreinscripcion, Preinscripcion
+from apps.admisiones.servicios import CupoAgotado, SolicitudDuplicada, registrar_preinscripcion
 from apps.core.models import PeriodoInscripcion
 
 from .forms import PreinscripcionForm
 
 
 def formulario(request):
-    periodo = PeriodoInscripcion.objects.abierto()
+    periodo = PeriodoInscripcion.objects.abierto()  # o obtener_abierto() si renombrás
     if periodo is None:
-        proximo = PeriodoInscripcion.objects.filter(fecha_desde__gt=timezone.now()).order_by("fecha_desde").first()
+        proximo = PeriodoInscripcion.objects.filter(
+            fecha_desde__gt=timezone.now()
+        ).order_by("fecha_desde").first()
         return render(request, "preinscripcion/cerrado.html", {"proximo": proximo})
 
     if request.method == "POST":
         form = PreinscripcionForm(request.POST, request.FILES, periodo=periodo)
+        # Toda la escritura vive en el servicio: si no hay cupo o hay
+        # duplicado, no queda ninguna fila ni documento a medias.
         if form.is_valid():
-            preinscripcion = form.save()
-            enviar_recepcion(preinscripcion)
-            # Se guarda en la sesión para que la confirmación no dependa de un id en la URL.
-            request.session["preinscripcion_enviada"] = preinscripcion.pk
-            return redirect("preinscripcion:enviada")
+            archivos = {
+                DocumentoPreinscripcion.Tipo.DNI: form.cleaned_data["archivo_dni"],
+                form.cleaned_data["titulo_situacion"]: form.cleaned_data["archivo_titulo"],
+                DocumentoPreinscripcion.Tipo.ANALITICO: form.cleaned_data.get("archivo_analitico"),
+            }
+            try:
+                preinscripcion = registrar_preinscripcion(
+                    datos=form.cleaned_data,
+                    archivos=archivos,
+                )
+            except CupoAgotado:
+                form.add_error("oferta", "Esta carrera no tiene cupo disponible.")
+            except SolicitudDuplicada:
+                form.add_error("dni", "Ya existe una solicitud activa con este DNI.")
+            else:
+                enviar_recepcion(preinscripcion)
+                request.session["preinscripcion_enviada"] = preinscripcion.pk
+                return redirect("preinscripcion:enviada")
     else:
         form = PreinscripcionForm(periodo=periodo)
 

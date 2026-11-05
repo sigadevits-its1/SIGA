@@ -117,8 +117,13 @@ class MoodleTests(SimpleTestCase):
             moodle_user_id=None,
             save=Mock(),
         )
-        respuesta = BytesIO(b'[{"id":17,"username":"46318765"}]')
-        with patch("apps.admisiones.moodle.urlopen", return_value=respuesta) as urlopen:
+        # crear_usuario_moodle hace dos llamadas: primero busca por DNI y
+        # después crea. El mock debe devolver una respuesta para cada una.
+        respuestas = [
+            BytesIO(b"[]"),                                  # buscar_usuario_moodle: no existe
+            BytesIO(b'[{"id":17,"username":"46318765"}]'),   # core_user_create_users
+        ]
+        with patch("apps.admisiones.moodle.urlopen", side_effect=respuestas) as urlopen:
             clave = crear_usuario_moodle(persona)
 
         self.assertEqual(len(clave), 16)

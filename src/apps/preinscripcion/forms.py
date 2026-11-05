@@ -1,5 +1,5 @@
 from django import forms
-from django.db import transaction
+from django.utils import timezone
 
 from apps.admisiones.cupos import tiene_cupo
 from apps.admisiones.models import DocumentoPreinscripcion, Preinscripcion
@@ -73,6 +73,13 @@ class PreinscripcionForm(forms.Form):
                 "Ya hay una solicitud con este DNI en el período. Si tenés dudas, consultá en secretaría."
             )
         return dni
+    
+    def clean_fecha_nacimiento(self):
+        """Rechaza fechas futuras antes de llegar al validador del modelo."""
+        fecha = self.cleaned_data["fecha_nacimiento"]
+        if fecha > timezone.localdate():
+            raise forms.ValidationError("La fecha de nacimiento no puede ser futura.")
+        return fecha
 
     def clean_oferta(self):
         oferta = self.cleaned_data["oferta"]
@@ -88,31 +95,3 @@ class PreinscripcionForm(forms.Form):
         if datos.get("website"):
             raise forms.ValidationError("No pudimos procesar el envío.")
         return datos
-
-    @transaction.atomic
-    def save(self):
-        """Guarda la persona, la solicitud y sus documentos en una sola transacción."""
-        d = self.cleaned_data
-        persona, _ = Persona.objects.update_or_create(
-            dni=d["dni"],
-            defaults={
-                "nombre": d["nombre"].strip(),
-                "apellido": d["apellido"].strip(),
-                "fecha_nacimiento": d["fecha_nacimiento"],
-                "email": d["email"].lower(),
-                "telefono": d["telefono"].strip(),
-            },
-        )
-        preinscripcion = Preinscripcion.objects.create(persona=persona, periodo_plan=d["oferta"])
-
-        archivos = {
-            Tipo.DNI: d["archivo_dni"],
-            d["titulo_situacion"]: d["archivo_titulo"],
-            Tipo.ANALITICO: d.get("archivo_analitico"),
-        }
-        for tipo, archivo in archivos.items():
-            if archivo:
-                DocumentoPreinscripcion.objects.create(
-                    preinscripcion=preinscripcion, tipo=tipo, archivo=archivo, nombre_original=archivo.name
-                )
-        return preinscripcion

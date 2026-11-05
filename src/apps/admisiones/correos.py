@@ -13,13 +13,12 @@ from django.template.loader import render_to_string
 
 logger = logging.getLogger(__name__)
 
-
 def enviar_recepcion(preinscripcion):
-    _enviar(preinscripcion, f"Recibimos tu solicitud {preinscripcion.numero}", "recepcion")
+    return _enviar(preinscripcion, f"Recibimos tu solicitud {preinscripcion.numero}", "recepcion")
 
 
 def enviar_aceptacion(preinscripcion, usuario_moodle=None, clave_moodle=None, cuenta_moodle_existente=False):
-    _enviar(
+    return _enviar(
         preinscripcion,
         "Tu preinscripción fue aceptada",
         "aceptacion",
@@ -30,10 +29,15 @@ def enviar_aceptacion(preinscripcion, usuario_moodle=None, clave_moodle=None, cu
 
 
 def enviar_rechazo(preinscripcion):
-    _enviar(preinscripcion, "Tu preinscripción no fue aceptada", "rechazo")
+    return _enviar(preinscripcion, "Tu preinscripción no fue aceptada", "rechazo")
+
 
 
 def _enviar(preinscripcion, asunto, plantilla, **datos_adicionales):
+    """Envía un correo y devuelve (ok, error).
+    No propaga la excepción: las vistas necesitan saber si el correo salió
+    para informarlo, sin deshacer la operación ya confirmada. El error se
+    deja igualmente en el log."""
     contexto = {"p": preinscripcion, "sitio": settings.SITE_URL.rstrip("/")}
     contexto.update(datos_adicionales)
     try:
@@ -44,5 +48,35 @@ def _enviar(preinscripcion, asunto, plantilla, **datos_adicionales):
             from_email=None,  # usa DEFAULT_FROM_EMAIL
             recipient_list=[preinscripcion.persona.email],
         )
-    except Exception:
+        return True, ""
+    except Exception as error:
         logger.exception("No se pudo enviar el correo de %s", preinscripcion.numero)
+        return False, str(error)
+
+
+class CorreoSIGA:
+    """Adaptador de los correos del trámite.
+
+    Permite inyectar un notificador falso en los tests del gestor, sin
+    parchear funciones globales.
+    """
+
+    def recepcion(self, solicitud):
+        return enviar_recepcion(solicitud)
+
+    def aceptacion(
+        self,
+        solicitud,
+        usuario_moodle=None,
+        clave_moodle=None,
+        cuenta_moodle_existente=False,
+    ):
+        return enviar_aceptacion(
+            solicitud,
+            usuario_moodle,
+            clave_moodle,
+            cuenta_moodle_existente=cuenta_moodle_existente,
+        )
+
+    def rechazo(self, solicitud):
+        return enviar_rechazo(solicitud)

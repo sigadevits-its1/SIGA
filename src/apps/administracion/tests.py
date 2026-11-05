@@ -69,7 +69,7 @@ class PanelAdministrativoTests(TestCase):
 
     def test_aceptar(self):
         self.client.force_login(self.secretaria)
-        with patch("apps.administracion.views.crear_usuario_moodle", return_value="ClaveTemporal123!") as crear:
+        with patch("apps.admisiones.moodle.ClienteMoodle.crear_usuario", return_value="ClaveTemporal123!") as crear:
             self.client.post(
                 reverse("administracion:aceptar", args=[self.p.pk]),
                 {"observaciones": "Documentación verificada"},
@@ -87,7 +87,7 @@ class PanelAdministrativoTests(TestCase):
     def test_falla_moodle_y_no_acepta_la_solicitud(self):
         self.client.force_login(self.secretaria)
         with patch(
-            "apps.administracion.views.crear_usuario_moodle",
+            "apps.admisiones.moodle.ClienteMoodle.crear_usuario",
             side_effect=MoodleIntegrationError("Falta configurar MOODLE_API_TOKEN."),
         ):
             respuesta = self.client.post(reverse("administracion:aceptar", args=[self.p.pk]))
@@ -111,7 +111,7 @@ class PanelAdministrativoTests(TestCase):
 
     def test_no_se_puede_resolver_dos_veces(self):
         self.client.force_login(self.secretaria)
-        with patch("apps.administracion.views.crear_usuario_moodle", return_value="ClaveTemporal123!"):
+        with patch("apps.admisiones.moodle.ClienteMoodle.crear_usuario", return_value="ClaveTemporal123!"):
             self.client.post(reverse("administracion:aceptar", args=[self.p.pk]))
         self.client.post(reverse("administracion:rechazar", args=[self.p.pk]), {"motivo": "x"})
         self.p.refresh_from_db()
