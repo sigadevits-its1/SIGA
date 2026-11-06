@@ -6,6 +6,7 @@ La vista sólo traduce las excepciones a errores de formulario o mensajes.
 """
 from dataclasses import dataclass
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -108,6 +109,7 @@ class ResultadoAceptacion:
     cuenta_existente: bool
     correo_enviado: bool
     error_correo: str = ""
+    moodle_sincronizado: bool = True
 
 
 @dataclass(frozen=True)
@@ -129,19 +131,23 @@ class GestorSolicitudes:
         self.correo = correo or CorreoSIGA()
 
     def aceptar(self, solicitud, usuario, observaciones=""):
-        """Primero Moodle, después el estado.
+        """Primero Moodle (si MOODLE_ACTIVO está habilitado), después el estado.
 
-        Si Moodle falla, la excepción sale antes de la transacción y la
-        solicitud sigue pendiente. La fila se bloquea y se revalida después
-        de hablar con Moodle, porque mientras tanto otra persona pudo
-        resolver la misma solicitud.
+        Si Moodle está activo y falla, la excepción sale antes de la transacción
+        y la solicitud sigue pendiente. Si MOODLE_ACTIVO es False, se acepta el
+        trámite sin emitir peticiones HTTP a Moodle.
         """
         if not solicitud.esta_pendiente:
             raise SolicitudYaResuelta("La solicitud ya estaba resuelta.")
 
         persona = solicitud.persona
-        clave_temporal = self.moodle.crear_usuario(persona)
-        cuenta_existente = clave_temporal is None
+        usar_moodle = getattr(settings, "MOODLE_ACTIVO", False)
+        if usar_moodle:
+            clave_temporal = self.moodle.crear_usuario(persona)
+            cuenta_existente = clave_temporal is None
+        else:
+            clave_temporal = None
+            cuenta_existente = False
 
         with transaction.atomic():
             actual = (
@@ -158,10 +164,11 @@ class GestorSolicitudes:
             except ValueError as error:
                 raise SolicitudYaResuelta(str(error)) from error
 
-            actual.moodle_estado = Preinscripcion.MoodleEstado.CREADO
-            actual.moodle_error = ""
-            actual.moodle_actualizado = timezone.now()
-            actual.save(update_fields=["moodle_estado", "moodle_error", "moodle_actualizado"])
+            if usar_moodle:
+                actual.moodle_estado = Preinscripcion.MoodleEstado.CREADO
+                actual.moodle_error = ""
+                actual.moodle_actualizado = timezone.now()
+                actual.save(update_fields=["moodle_estado", "moodle_error", "moodle_actualizado"])
 
         ok, error = self.correo.aceptacion(
             actual,
@@ -169,7 +176,14 @@ class GestorSolicitudes:
             clave_temporal,
             cuenta_moodle_existente=cuenta_existente,
         )
-        return ResultadoAceptacion(actual, clave_temporal, cuenta_existente, ok, error)
+        return ResultadoAceptacion(
+            actual,
+            clave_temporal,
+            cuenta_existente,
+            ok,
+            error,
+            moodle_sincronizado=usar_moodle,
+        )
 
     def rechazar(self, solicitud, usuario, motivo):
         """Rechaza con motivo. El correo se envía después del commit."""

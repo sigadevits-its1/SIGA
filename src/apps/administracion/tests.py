@@ -31,7 +31,7 @@ def crear_oferta():
     return PeriodoPlan.objects.create(periodo=periodo, plan=plan, cupo_ingresantes=10)
 
 
-@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL)
+@override_settings(MEDIA_ROOT=MEDIA_TEMPORAL, MOODLE_ACTIVO=True)
 class PanelAdministrativoTests(TestCase):
     @classmethod
     def tearDownClass(cls):
@@ -52,12 +52,17 @@ class PanelAdministrativoTests(TestCase):
         self.otro = User.objects.create_user("otro", password="x")
 
     def test_sin_sesion_redirige_al_login(self):
-        for url in [reverse("administracion:bandeja"), reverse("administracion:documento", args=[self.doc.pk])]:
+        for url in [
+            reverse("administracion:bandeja"),
+            reverse("administracion:aprobados_pdf"),
+            reverse("administracion:documento", args=[self.doc.pk]),
+        ]:
             self.assertRedirects(self.client.get(url), f"{reverse('login')}?next={url}")
 
     def test_sin_rol_administrativo_da_403(self):
         self.client.force_login(self.otro)
         self.assertEqual(self.client.get(reverse("administracion:bandeja")).status_code, 403)
+        self.assertEqual(self.client.get(reverse("administracion:aprobados_pdf")).status_code, 403)
         self.assertEqual(self.client.get(reverse("administracion:documento", args=[self.doc.pk])).status_code, 403)
 
     def test_bandeja_y_ficha_con_rol(self):
@@ -96,6 +101,21 @@ class PanelAdministrativoTests(TestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertRedirects(respuesta, reverse("administracion:ficha", args=[self.p.pk]))
 
+    @override_settings(MOODLE_ACTIVO=False)
+    def test_aceptar_con_moodle_desactivado_no_hace_peticiones(self):
+        self.client.force_login(self.secretaria)
+        with patch("apps.admisiones.moodle.ClienteMoodle.crear_usuario") as crear:
+            self.client.post(
+                reverse("administracion:aceptar", args=[self.p.pk]),
+                {"observaciones": "Aceptado sin integración Moodle"},
+            )
+        crear.assert_not_called()
+        self.p.refresh_from_db()
+        self.assertEqual(self.p.estado, Preinscripcion.Estado.ACEPTADO)
+        self.assertEqual(self.p.moodle_estado, Preinscripcion.MoodleEstado.PENDIENTE)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertNotIn("Clave temporal:", mail.outbox[0].body)
+
     def test_rechazar_exige_motivo_y_envia_correo(self):
         self.client.force_login(self.secretaria)
         url = reverse("administracion:rechazar", args=[self.p.pk])
@@ -116,3 +136,36 @@ class PanelAdministrativoTests(TestCase):
         self.client.post(reverse("administracion:rechazar", args=[self.p.pk]), {"motivo": "x"})
         self.p.refresh_from_db()
         self.assertEqual(self.p.estado, Preinscripcion.Estado.ACEPTADO)
+
+    def test_exportar_pdf_aprobados_incluye_solo_aceptados(self):
+        self.client.force_login(self.secretaria)
+        # Creamos un segundo aspirante pendiente y un tercero rechazado
+        pendiente = Persona.objects.create(
+            nombre="Lucas", apellido="Gomez", dni="45102334", fecha_nacimiento="2005-03-10",
+            email="lucas@example.com", telefono="2920111222",
+        )
+        Preinscripcion.objects.create(persona=pendiente, periodo_plan=self.p.periodo_plan)
+
+        rechazado = Persona.objects.create(
+            nombre="Valentina", apellido="Ruiz", dni="47020118", fecha_nacimiento="2006-11-22",
+            email="valentina@example.com", telefono="2920333444",
+        )
+        sol_rechazada = Preinscripcion.objects.create(persona=rechazado, periodo_plan=self.p.periodo_plan)
+        sol_rechazada.rechazar(self.secretaria, "Falta dorso del DNI")
+
+        # Aceptamos a Sofía Martínez
+        self.p.aceptar(self.secretaria, "OK")
+
+        respuesta = self.client.get(reverse("administracion:aprobados_pdf"))
+        self.assertEqual(respuesta.status_code, 200)
+        self.assertEqual(respuesta["Content-Type"], "application/pdf")
+        self.assertIn("inscriptos_aprobados_ing-test.pdf", respuesta["Content-Disposition"])
+        self.assertTrue(respuesta.content.startswith(b"%PDF-1.4"))
+        self.assertTrue(respuesta.content.rstrip().endswith(b"%%EOF"))
+
+        # Debe incluir a la aspirante aceptada (Sofía Martínez) y excluir pendientes/rechazados
+        self.assertIn(b"46318765", respuesta.content)
+        self.assertIn(self.p.numero.encode("ascii"), respuesta.content)
+        self.assertNotIn(b"45102334", respuesta.content)
+        self.assertNotIn(b"47020118", respuesta.content)
+

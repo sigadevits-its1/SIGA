@@ -6,6 +6,7 @@ app_name = "administracion"
 
 urlpatterns = [
     path("", views.bandeja, name="bandeja"),
+    path("aprobados/pdf/", views.exportar_aprobados_pdf, name="aprobados_pdf"),
     path("aspirantes/<int:pk>/", views.ficha, name="ficha"),
     path("aspirantes/<int:pk>/aceptar/", views.aceptar, name="aceptar"),
     path("aspirantes/<int:pk>/rechazar/", views.rechazar, name="rechazar"),

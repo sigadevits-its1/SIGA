@@ -9,6 +9,13 @@
     <h1>Aspirantes</h1>
     <p>{% if periodo %}Preinscripciones del período {{ periodo.nombre }}. Revisá cada solicitud y aceptala o rechazala.{% else %}Todavía no hay períodos de inscripción cargados.{% endif %}</p>
   </div>
+  {% if periodo %}
+  <div class="actions">
+    <a class="btn" href="{% url 'administracion:aprobados_pdf' %}{% if f.carrera %}?carrera={{ f.carrera }}{% endif %}">
+      <i data-lucide="file-down"></i> Listado de aprobados (PDF)
+    </a>
+  </div>
+  {% endif %}
 </div>
 
 {# Resumen por estado: cada tarjeta filtra la tabla #}

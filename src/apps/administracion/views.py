@@ -1,8 +1,9 @@
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Count, Q
-from django.http import FileResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.text import slugify
 from django.views.decorators.http import require_POST
 
 from apps.admisiones.cupos import ofertas_con_cupo
@@ -11,6 +12,7 @@ from apps.admisiones.moodle import MoodleIntegrationError
 from apps.admisiones.servicios import GestorSolicitudes, MotivoRequerido, SolicitudYaResuelta
 from apps.core.models import Carrera, PeriodoInscripcion
 
+from .pdf import generar_pdf_aprobados
 from .permisos import rol_administrativo
 
 Estado = Preinscripcion.Estado
@@ -122,6 +124,11 @@ def aceptar(request, pk):
                 request,
                 f"Aceptaste a {nombre}, pero el correo no se pudo enviar.",
             )
+        elif not resultado.moodle_sincronizado:
+            messages.success(
+                request,
+                f"Aceptaste a {nombre} y le enviamos el aviso por correo.",
+            )
         elif resultado.cuenta_existente:
             messages.success(
                 request,
@@ -165,3 +172,37 @@ def ver_documento(request, pk):
     """Los archivos no tienen URL pública: se entregan sólo por esta vista."""
     documento = get_object_or_404(DocumentoPreinscripcion, pk=pk)
     return FileResponse(documento.archivo.open("rb"), filename=documento.nombre_original)
+
+
+@rol_administrativo
+def exportar_aprobados_pdf(request):
+    """Genera y descarga el listado en PDF de aspirantes aprobados (Extensión 1)."""
+    periodo = PeriodoInscripcion.objects.actual()
+    solicitudes = (
+        Preinscripcion.objects.filter(
+            periodo_plan__periodo=periodo,
+            estado=Estado.ACEPTADO,
+        )
+        .select_related("persona", "periodo_plan__plan__carrera", "periodo_plan__periodo")
+        .order_by("periodo_plan__plan__carrera__nombre", "persona__apellido", "persona__nombre")
+    )
+
+    carrera_id = request.GET.get("carrera", "").strip()
+    carrera_filtrada = None
+    if carrera_id.isdigit():
+        carrera_filtrada = Carrera.objects.filter(pk=int(carrera_id)).first()
+        if carrera_filtrada:
+            solicitudes = solicitudes.filter(periodo_plan__plan__carrera=carrera_filtrada)
+
+    contenido_pdf = generar_pdf_aprobados(
+        periodo=periodo,
+        solicitudes=solicitudes,
+        carrera_filtrada=carrera_filtrada,
+    )
+    sufijo_periodo = slugify(periodo.codigo) if periodo else "siga"
+    sufijo_carrera = f"_{slugify(carrera_filtrada.codigo)}" if carrera_filtrada else ""
+    nombre_archivo = f"inscriptos_aprobados_{sufijo_periodo}{sufijo_carrera}.pdf"
+
+    respuesta = HttpResponse(contenido_pdf, content_type="application/pdf")
+    respuesta["Content-Disposition"] = f'attachment; filename="{nombre_archivo}"'
+    return respuesta
