@@ -11,4 +11,5 @@ urlpatterns = [
     path("aspirantes/<int:pk>/aceptar/", views.aceptar, name="aceptar"),
     path("aspirantes/<int:pk>/rechazar/", views.rechazar, name="rechazar"),
     path("documentos/<int:pk>/", views.ver_documento, name="documento"),
+    path("en-construccion/<slug:modulo>/", views.en_construccion, name="en_construccion"),
 ]

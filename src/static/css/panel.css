@@ -19,8 +19,9 @@
 .nav a[aria-current="page"] { background: var(--navy-050); color: var(--navy); font-weight: 650; }
 .nav a .count { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); font-size: 11.5px; font-weight: 600; color: var(--muted); }
 .nav a[aria-current="page"] .count { background: #fff; color: var(--navy); }
-.nav a.soon { opacity: .6; }
-.nav a.soon::after { content: "Admin"; margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--subtle); }
+.nav a.soon { opacity: .65; }
+.nav a.soon[aria-current="page"] { opacity: 1; }
+.nav a.soon::after { content: "Próx."; margin-left: auto; font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--subtle); }
 /* Tarjeta del período, abajo de la barra lateral. Se minimiza a una sola línea. */
 .periodo-card { margin-top: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); font-size: 12.5px; }
 .periodo-head { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 10px 12px; cursor: pointer; border-radius: 10px; }

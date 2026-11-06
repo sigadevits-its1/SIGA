@@ -206,3 +206,74 @@ def exportar_aprobados_pdf(request):
     respuesta = HttpResponse(contenido_pdf, content_type="application/pdf")
     respuesta["Content-Disposition"] = f'attachment; filename="{nombre_archivo}"'
     return respuesta
+
+
+MODULOS_EN_CONSTRUCCION = {
+    "carreras": {
+        "titulo": "Carreras y planes de estudio",
+        "icono": "graduation-cap",
+        "descripcion": (
+            "Desde esta sección el personal administrativo podrá dar de alta nuevas tecnicaturas, "
+            "actualizar resoluciones ministeriales y administrar los planes de estudio vigentes "
+            "directamente desde el panel de SIGA."
+        ),
+        "alcance": [
+            "Alta y edición de carreras y nombres cortos.",
+            "Asociación de planes de estudio y resoluciones oficiales.",
+            "Activación o baja lógica de ofertas académicas.",
+        ],
+    },
+    "periodos": {
+        "titulo": "Períodos de inscripción y cupos",
+        "icono": "calendar-range",
+        "descripcion": (
+            "Esta sección permitirá abrir y programar nuevos períodos de preinscripción, "
+            "definir las fechas de apertura y cierre del formulario público y ajustar los cupos "
+            "de ingresantes por carrera."
+        ),
+        "alcance": [
+            "Apertura y cierre programado de convocatorias por ciclo lectivo.",
+            "Asignación y ampliación de cupos de ingresantes por carrera.",
+            "Consulta histórica de períodos anteriores.",
+        ],
+    },
+    "usuarios": {
+        "titulo": "Usuarios y permisos",
+        "icono": "user-cog",
+        "descripcion": (
+            "Este módulo concentrará la gestión de cuentas del personal de secretaría, preceptores "
+            "y directivos del instituto, junto con la asignación de roles y permisos dentro de SIGA."
+        ),
+        "alcance": [
+            "Creación de cuentas para el personal administrativo.",
+            "Asignación de perfiles y permisos por módulo.",
+            "Blanqueo de contraseñas y auditoría de accesos.",
+        ],
+    },
+}
+
+
+@rol_administrativo
+def en_construccion(request, modulo):
+    """Muestra una vista informativa para los módulos previstos en próximas etapas."""
+    periodo = PeriodoInscripcion.objects.actual()
+    del_periodo = Preinscripcion.objects.filter(periodo_plan__periodo=periodo)
+    totales = del_periodo.aggregate(
+        total=Count("id"),
+        pendiente=Count("id", filter=Q(estado=Estado.PENDIENTE)),
+    )
+    info = MODULOS_EN_CONSTRUCCION.get(
+        modulo,
+        {
+            "titulo": "Módulo en construcción",
+            "icono": "construction",
+            "descripcion": "Esta funcionalidad forma parte de la próxima etapa evolutiva de SIGA.",
+            "alcance": [],
+        },
+    )
+    return render(request, "administracion/en_construccion.html", {
+        "periodo": periodo,
+        "totales": totales,
+        "menu": modulo,
+        "info": info,
+    })

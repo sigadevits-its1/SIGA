@@ -5,6 +5,21 @@ from django.urls import include, path
 from django.views.generic import RedirectView
 
 urlpatterns = [
+    path(
+        "admin/core/carrera/",
+        RedirectView.as_view(pattern_name="administracion:en_construccion"),
+        {"modulo": "carreras"},
+    ),
+    path(
+        "admin/core/periodoinscripcion/",
+        RedirectView.as_view(pattern_name="administracion:en_construccion"),
+        {"modulo": "periodos"},
+    ),
+    path(
+        "admin/auth/user/",
+        RedirectView.as_view(pattern_name="administracion:en_construccion"),
+        {"modulo": "usuarios"},
+    ),
     path("admin/", admin.site.urls),
     path("ingresar/", auth_views.LoginView.as_view(), name="login"),
     path("salir/", auth_views.LogoutView.as_view(), name="logout"),

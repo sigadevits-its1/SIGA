@@ -20,14 +20,12 @@
       </a>
     </nav>
 
-    {% if user.is_staff %}
-      <div class="nav-label">Configuración</div>
-      <nav class="nav">
-        <a class="soon" href="{% url 'admin:core_carrera_changelist' %}"><i data-lucide="graduation-cap"></i> Carreras y planes</a>
-        <a class="soon" href="{% url 'admin:core_periodoinscripcion_changelist' %}"><i data-lucide="calendar-range"></i> Períodos y cupos</a>
-        <a class="soon" href="{% url 'admin:auth_user_changelist' %}"><i data-lucide="user-cog"></i> Usuarios</a>
-      </nav>
-    {% endif %}
+    <div class="nav-label">Configuración</div>
+    <nav class="nav">
+      <a class="soon" href="{% url 'administracion:en_construccion' 'carreras' %}" {% if menu == "carreras" %}aria-current="page"{% endif %}><i data-lucide="graduation-cap"></i> Carreras y planes</a>
+      <a class="soon" href="{% url 'administracion:en_construccion' 'periodos' %}" {% if menu == "periodos" %}aria-current="page"{% endif %}><i data-lucide="calendar-range"></i> Períodos y cupos</a>
+      <a class="soon" href="{% url 'administracion:en_construccion' 'usuarios' %}" {% if menu == "usuarios" %}aria-current="page"{% endif %}><i data-lucide="user-cog"></i> Usuarios</a>
+    </nav>
 
     {% if periodo %}
       {# Estado del período. Se puede minimizar con la flecha; se recuerda en el navegador. #}

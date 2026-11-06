@@ -71,6 +71,14 @@ class PanelAdministrativoTests(TestCase):
         self.assertContains(self.client.get(reverse("administracion:bandeja"), {"q": "46318"}), "Sofía Martínez")
         self.assertContains(self.client.get(reverse("administracion:ficha", args=[self.p.pk])), self.p.numero)
         self.assertEqual(self.client.get(reverse("administracion:documento", args=[self.doc.pk])).status_code, 200)
+        for modulo in ("carreras", "periodos", "usuarios"):
+            respuesta = self.client.get(reverse("administracion:en_construccion", args=[modulo]))
+            self.assertEqual(respuesta.status_code, 200)
+            self.assertContains(respuesta, "Módulo en construcción")
+        self.assertRedirects(
+            self.client.get("/admin/core/carrera/"),
+            reverse("administracion:en_construccion", args=["carreras"]),
+        )
 
     def test_aceptar(self):
         self.client.force_login(self.secretaria)

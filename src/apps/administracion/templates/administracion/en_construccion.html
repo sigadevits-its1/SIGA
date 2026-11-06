@@ -1,0 +1,58 @@
+{% extends "base_panel.html" %}
+{% block titulo %}{{ info.titulo }} · En construcción{% endblock %}
+
+{% block migas %}
+  <span>Configuración</span><i data-lucide="chevron-right"></i>
+  <strong>{{ info.titulo }}</strong>
+{% endblock %}
+
+{% block contenido %}
+<div class="page-head">
+  <div>
+    <h1>{{ info.titulo }}</h1>
+    <p>Sección planificada para la siguiente etapa evolutiva del sistema.</p>
+  </div>
+  <div class="actions">
+    <a class="btn" href="{% url 'administracion:bandeja' %}">
+      <i data-lucide="arrow-left"></i> Volver a aspirantes
+    </a>
+  </div>
+</div>
+
+<section class="card" style="padding: 36px 28px;">
+  <div style="max-width: 640px; margin: 0 auto; display: grid; gap: 18px; text-align: center; justify-items: center;">
+    <span class="empty-ico" style="margin-bottom: 0; width: 64px; height: 64px;">
+      <i data-lucide="construction" style="width: 30px; height: 30px;"></i>
+    </span>
+
+    <span class="pill tone-amber">Módulo en construcción · Próxima etapa</span>
+
+    <h2 style="font-size: 21px; font-weight: 700; color: var(--text); margin: 0;">
+      {{ info.titulo }}
+    </h2>
+
+    <p style="color: var(--muted); font-size: 14.5px; line-height: 1.6; margin: 0;">
+      {{ info.descripcion }}
+    </p>
+
+    {% if info.alcance %}
+    <div style="width: 100%; text-align: left; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin-top: 4px;">
+      <div class="label-sm" style="margin-bottom: 10px;">Funcionalidades previstas en este módulo</div>
+      <ul style="margin: 0; padding-left: 18px; color: var(--text); font-size: 13.5px; display: grid; gap: 6px;">
+        {% for item in info.alcance %}
+          <li>{{ item }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    <div class="notice" style="width: 100%; text-align: left; margin-top: 4px;">
+      <i data-lucide="info"></i>
+      <span>
+        En esta primera etapa centrada en el <strong>circuito de ingreso</strong>, los datos iniciales se cargan mediante
+        <code>python manage.py cargar_demo</code>{% if user.is_superuser %} o desde el <a href="/admin/" style="color: inherit; font-weight: 600;">panel técnico de Django (/admin/)</a>{% endif %}.
+      </span>
+    </div>
+  </div>
+</section>
+{% endblock %}
